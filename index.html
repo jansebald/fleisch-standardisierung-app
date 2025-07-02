@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleisch-Standardisierung - Rohstoffoptimierung</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            border-radius: 15px;
+            background: #f8f9fa;
+            border-left: 5px solid #3498db;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+
+        .input-group input {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .calculate-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 20px 0;
+        }
+
+        .calculate-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .result-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #27ae60;
+        }
+
+        .result-card.warning {
+            border-left-color: #f39c12;
+        }
+
+        .result-card.danger {
+            border-left-color: #e74c3c;
+        }
+
+        .result-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .result-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        .result-card.warning .result-value {
+            color: #f39c12;
+        }
+
+        .result-card.danger .result-value {
+            color: #e74c3c;
+        }
+
+        .optimization-section {
+            background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
+            color: white;
+            margin-top: 30px;
+        }
+
+        .optimization-section h2 {
+            color: white;
+        }
+
+        .mix-result {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .status-ok { color: #27ae60; font-weight: bold; }
+        .status-warning { color: #f39c12; font-weight: bold; }
+        .status-danger { color: #e74c3c; font-weight: bold; }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2em; }
+            .input-grid { grid-template-columns: 1fr; }
+            .results { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🥩 Fleisch-Standardisierung</h1>
+            <p>Automatisierte Rohstoffstandardisierung nach Leitsätzen</p>
+        </div>
+
+        <div class="main-content">
+            <!-- BigBox Eingaben -->
+            <div class="section">
+                <h2>📦 BigBox Analysewerte (FOSS-Messung)</h2>
+                
+                <h3>BigBox 1 - Magerfleisch</h3>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="box1-protein">Eiweiß (%)</label>
+                        <input type="number" id="box1-protein" value="18.5" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="box1-fat">Fett (%)</label>
+                        <input type="number" id="box1-fat" value="7.2" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="box1-water">Wasser (%)</label>
+                        <input type="number" id="box1-water" value="73.8" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="box1-hydroxy">Hydroxyprolin (%)</label>
+                        <input type="number" id="box1-hydroxy" value="0.085" step="0.001">
+                    </div>
+                    <div class="input-group">
+                        <label for="box1-price">Preis (€/kg)</label>
+                        <input type="number" id="box1-price" value="4.50" step="0.01">
+                    </div>
+                </div>
+
+                <h3>BigBox 2 - Fettanteil</h3>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="box2-protein">Eiweiß (%)</label>
+                        <input type="number" id="box2-protein" value="1.8" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="box2-fat">Fett (%)</label>
+                        <input type="number" id="box2-fat" value="82.5" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="box2-water">Wasser (%)</label>
+                        <input type="number" id="box2-water" value="15.2" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="box2-hydroxy">Hydroxyprolin (%)</label>
+                        <input type="number" id="box2-hydroxy" value="0.022" step="0.001">
+                    </div>
+                    <div class="input-group">
+                        <label for="box2-price">Preis (€/kg)</label>
+                        <input type="number" id="box2-price" value="2.80" step="0.01">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zielprodukt -->
+            <div class="section">
+                <h2>🎯 Zielprodukt - Lyoner Spezifikation</h2>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="target-protein">Ziel Eiweiß (%)</label>
+                        <input type="number" id="target-protein" value="12.0" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="target-fat">Ziel Fett (%)</label>
+                        <input type="number" id="target-fat" value="25.0" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="target-beffe">Min. BEFFE (%)</label>
+                        <input type="number" id="target-beffe" value="10.0" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="target-wew">Max. W/EW Koeffizient</label>
+                        <input type="number" id="target-wew" value="4.0" step="0.1">
+                    </div>
+                </div>
+            </div>
+
+            <button class="calculate-btn" onclick="optimizeMix()">🔬 Rezeptur Optimieren</button>
+
+            <!-- Ergebnisse -->
+            <div id="results-section" style="display: none;">
+                <div class="section optimization-section">
+                    <h2>📊 Optimierte Rezeptur</h2>
+                    <div class="mix-result" id="mix-result">
+                        <!-- Wird durch JavaScript gefüllt -->
+                    </div>
+                </div>
+
+                <div class="results" id="quality-results">
+                    <!-- Wird durch JavaScript gefüllt -->
+                </div>
+
+                <div class="section">
+                    <h2>💰 Kostenanalyse</h2>
+                    <div id="cost-analysis">
+                        <!-- Wird durch JavaScript gefüllt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function optimizeMix() {
+            // Eingabewerte lesen
+            const box1 = {
+                protein: parseFloat(document.getElementById('box1-protein').value),
+                fat: parseFloat(document.getElementById('box1-fat').value),
+                water: parseFloat(document.getElementById('box1-water').value),
+                hydroxy: parseFloat(document.getElementById('box1-hydroxy').value),
+                price: parseFloat(document.getElementById('box1-price').value)
+            };
+
+            const box2 = {
+                protein: parseFloat(document.getElementById('box2-protein').value),
+                fat: parseFloat(document.getElementById('box2-fat').value),
+                water: parseFloat(document.getElementById('box2-water').value),
+                hydroxy: parseFloat(document.getElementById('box2-hydroxy').value),
+                price: parseFloat(document.getElementById('box2-price').value)
+            };
+
+            const target = {
+                protein: parseFloat(document.getElementById('target-protein').value),
+                fat: parseFloat(document.getElementById('target-fat').value),
+                beffe: parseFloat(document.getElementById('target-beffe').value),
+                wew: parseFloat(document.getElementById('target-wew').value)
+            };
+
+            // Optimierung durchführen
+            const result = findOptimalMix(box1, box2, target);
+            
+            // Ergebnisse anzeigen
+            displayResults(result, box1, box2, target);
+            document.getElementById('results-section').style.display = 'block';
+        }
+
+        function findOptimalMix(box1, box2, target) {
+            let bestMix = null;
+            let bestCost = Infinity;
+            
+            // Teste verschiedene Mischungsverhältnisse
+            for (let ratio1 = 0.3; ratio1 <= 0.9; ratio1 += 0.01) {
+                const ratio2 = 1 - ratio1;
+                
+                const mix = calculateMixture(box1, box2, ratio1, ratio2);
+                
+                // Prüfe Leitsatz-Compliance
+                if (mix.beffe >= target.beffe && 
+                    mix.wew <= target.wew &&
+                    Math.abs(mix.protein - target.protein) <= 0.5 &&
+                    Math.abs(mix.fat - target.fat) <= 1.0) {
+                    
+                    if (mix.cost < bestCost) {
+                        bestCost = mix.cost;
+                        bestMix = {
+                            ...mix,
+                            ratio1: ratio1,
+                            ratio2: ratio2
+                        };
+                    }
+                }
+            }
+            
+            return bestMix;
+        }
+
+        function calculateMixture(box1, box2, ratio1, ratio2) {
+            const protein = box1.protein * ratio1 + box2.protein * ratio2;
+            const fat = box1.fat * ratio1 + box2.fat * ratio2;
+            const water = box1.water * ratio1 + box2.water * ratio2;
+            const hydroxy = box1.hydroxy * ratio1 + box2.hydroxy * ratio2;
+            const cost = box1.price * ratio1 + box2.price * ratio2;
+            
+            const bindegewebsEiweiß = hydroxy * 8;
+            const beffe = protein - bindegewebsEiweiß;
+            const wew = water / protein;
+            const befe = bindegewebsEiweiß / (protein - bindegewebsEiweiß);
+            
+            return {
+                protein: protein,
+                fat: fat,
+                water: water,
+                hydroxy: hydroxy,
+                beffe: beffe,
+                wew: wew,
+                befe: befe,
+                cost: cost
+            };
+        }
+
+        function displayResults(result, box1, box2, target) {
+            if (!result) {
+                document.getElementById('mix-result').innerHTML = 
+                    '<h3 style="color: #e74c3c;">❌ Keine gültige Mischung gefunden!</h3>' +
+                    '<p>Mit den aktuellen Rohstoffen können die Leitsatz-Vorgaben nicht erfüllt werden.</p>';
+                return;
+            }
+
+            // Mischungsverhältnis anzeigen
+            document.getElementById('mix-result').innerHTML = `
+                <h3>✅ Optimale Mischung gefunden</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+                    <div>
+                        <strong>BigBox 1 (Magerfleisch):</strong><br>
+                        ${(result.ratio1 * 100).toFixed(1)}%
+                    </div>
+                    <div>
+                        <strong>BigBox 2 (Fettanteil):</strong><br>
+                        ${(result.ratio2 * 100).toFixed(1)}%
+                    </div>
+                </div>
+            `;
+
+            // Qualitätsergebnisse
+            const qualityResults = document.getElementById('quality-results');
+            qualityResults.innerHTML = `
+                <div class="result-card ${result.protein >= target.protein ? '' : 'warning'}">
+                    <h3>Eiweiß</h3>
+                    <div class="result-value">${result.protein.toFixed(1)}%</div>
+                    <p>Ziel: ${target.protein}%</p>
+                </div>
+                <div class="result-card ${Math.abs(result.fat - target.fat) <= 1 ? '' : 'warning'}">
+                    <h3>Fett</h3>
+                    <div class="result-value">${result.fat.toFixed(1)}%</div>
+                    <p>Ziel: ${target.fat}%</p>
+                </div>
+                <div class="result-card ${result.beffe >= target.beffe ? '' : 'danger'}">
+                    <h3>BEFFE</h3>
+                    <div class="result-value">${result.beffe.toFixed(1)}%</div>
+                    <p>Min: ${target.beffe}%</p>
+                </div>
+                <div class="result-card ${result.wew <= target.wew ? '' : 'danger'}">
+                    <h3>W/EW-Koeffizient</h3>
+                    <div class="result-value">${result.wew.toFixed(2)}</div>
+                    <p>Max: ${target.wew}</p>
+                </div>
+                <div class="result-card">
+                    <h3>BE/FE-Verhältnis</h3>
+                    <div class="result-value">${result.befe.toFixed(3)}</div>
+                    <p>Qualitätsindikator</p>
+                </div>
+            `;
+
+            // Kostenanalyse
+            const standardCost = (box1.price * 0.7 + box2.price * 0.3);
+            const savings = standardCost - result.cost;
+            const savingsPercent = (savings / standardCost * 100);
+
+            document.getElementById('cost-analysis').innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div class="result-card">
+                        <h3>Optimierte Kosten</h3>
+                        <div class="result-value">${result.cost.toFixed(2)} €/kg</div>
+                    </div>
+                    <div class="result-card">
+                        <h3>Standard-Kosten (70/30)</h3>
+                        <div class="result-value">${standardCost.toFixed(2)} €/kg</div>
+                    </div>
+                    <div class="result-card ${savings > 0 ? '' : 'warning'}">
+                        <h3>Ersparnis</h3>
+                        <div class="result-value">
+                            ${savings > 0 ? '+' : ''}${savings.toFixed(2)} €/kg
+                            <br><small>(${savingsPercent.toFixed(1)}%)</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Automatische Berechnung bei Eingabe-Änderungen
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    // Optional: Automatische Neuberechnung
+                    // optimizeMix();
+                });
+            });
+        });
+    </script>
+</body>
+</html>
