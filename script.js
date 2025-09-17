@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
     updateTargetSpecs();
     calculateCurrentBEFFE(0);
     updateTotalMixture();
+    
+    // Settings aus LocalStorage laden
+    loadSettingsFromStorage();
 });
 
 // Aktuelle Rohstoff-Defaults aktualisieren
@@ -1871,3 +1874,199 @@ function exportToPDF() {
 }
 
 console.log('🥩 Rohstoff-Beratungs-App geladen');
+
+// ===== SETTINGS MODAL FUNKTIONEN =====
+
+// Modal öffnen/schließen
+function openSettingsModal() {
+    const modal = document.getElementById("settingsModal");
+    modal.style.display = "flex";
+    
+    // Aktuelle Daten laden
+    loadMaterialsList();
+    loadProductsList();
+    loadAdvancedSettings();
+    
+    // Body Scroll blockieren
+    document.body.style.overflow = "hidden";
+}
+
+function closeSettingsModal() {
+    const modal = document.getElementById("settingsModal");
+    modal.style.display = "none";
+    
+    // Body Scroll freigeben
+    document.body.style.overflow = "auto";
+}
+
+// Tab-Funktionen
+function showTab(tabName) {
+    // Alle Tabs verstecken
+    document.querySelectorAll(".tab-content").forEach(tab => {
+        tab.classList.remove("active");
+    });
+    
+    // Alle Tab-Buttons deaktivieren
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+    });
+    
+    // Gewählten Tab anzeigen
+    document.getElementById(`${tabName}-tab`).classList.add("active");
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add("active");
+}
+
+// Rohstoffe-Management
+function loadMaterialsList() {
+    const container = document.getElementById("materials-list");
+    container.innerHTML = "";
+    
+    Object.entries(rawMaterials).forEach(([key, material]) => {
+        const card = document.createElement("div");
+        card.className = "item-card";
+        card.innerHTML = `
+            <div class="item-header">
+                <div class="item-name">${material.name}</div>
+                <div class="item-actions">
+                    <button class="edit-btn" onclick="editMaterial(\`${key}\`)">✏️ Bearbeiten</button>
+                    ${key !== "s3" && key !== "s8" && key !== "ice" ? 
+                        `<button class="delete-btn" onclick="deleteMaterial(\`${key}\`)">🗑️ Löschen</button>` : 
+                        ""}
+                </div>
+            </div>
+            <div class="item-grid">
+                <div class="item-field">
+                    <label>Eiweiß (%)</label>
+                    <input type="number" value="${material.protein}" readonly>
+                </div>
+                <div class="item-field">
+                    <label>Fett (%)</label>
+                    <input type="number" value="${material.fat}" readonly>
+                </div>
+                <div class="item-field">
+                    <label>Wasser (%)</label>
+                    <input type="number" value="${material.water}" readonly>
+                </div>
+                <div class="item-field">
+                    <label>Preis (€/kg)</label>
+                    <input type="number" value="${material.price}" readonly>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function editMaterial(materialKey) {
+    const material = rawMaterials[materialKey];
+    const newName = prompt("Name:", material.name) || material.name;
+    const newProtein = parseFloat(prompt("Eiweiß (%):", material.protein)) || material.protein;
+    const newFat = parseFloat(prompt("Fett (%):", material.fat)) || material.fat;
+    const newWater = parseFloat(prompt("Wasser (%):", material.water)) || material.water;
+    const newLean = parseFloat(prompt("Mageranteil (%):", material.lean)) || material.lean;
+    const newHydroxy = parseFloat(prompt("Hydroxy:", material.hydroxy)) || material.hydroxy;
+    const newPrice = parseFloat(prompt("Preis (€/kg):", material.price)) || material.price;
+    
+    rawMaterials[materialKey] = {
+        ...material,
+        name: newName,
+        protein: newProtein,
+        fat: newFat,
+        water: newWater,
+        lean: newLean,
+        hydroxy: newHydroxy,
+        price: newPrice
+    };
+    
+    loadMaterialsList();
+    updateAllMaterialDropdowns();
+}
+
+function saveSettings() {
+    const settings = {
+        rawMaterials: rawMaterials,
+        productSpecs: productSpecs
+    };
+    
+    localStorage.setItem("fleischAppSettings", JSON.stringify(settings));
+    alert("Einstellungen gespeichert! ✅");
+    closeSettingsModal();
+}
+
+function loadSettingsFromStorage() {
+    const saved = localStorage.getItem("fleischAppSettings");
+    if (saved) {
+        const settings = JSON.parse(saved);
+        
+        if (settings.rawMaterials) {
+            Object.entries(settings.rawMaterials).forEach(([key, material]) => {
+                rawMaterials[key] = material;
+            });
+        }
+        
+        if (settings.productSpecs) {
+            Object.entries(settings.productSpecs).forEach(([key, product]) => {
+                productSpecs[key] = product;
+            });
+        }
+    }
+}
+
+function loadProductsList() {
+    // Placeholder für Produkte-Liste
+    const container = document.getElementById("products-list");
+    container.innerHTML = "<p>Produkte-Management wird implementiert...</p>";
+}
+
+function loadAdvancedSettings() {
+    // Placeholder für erweiterte Einstellungen
+}
+
+function addNewMaterial() {
+    alert("Neue Rohstoff-Funktion wird implementiert...");
+}
+
+function addNewProduct() {
+    alert("Neue Produkt-Funktion wird implementiert...");
+}
+
+function exportSettings() {
+    alert("Export-Funktion wird implementiert...");
+}
+
+function importSettings() {
+    alert("Import-Funktion wird implementiert...");
+}
+
+function resetToDefaults() {
+    if (confirm("Alle Einstellungen zurücksetzen?")) {
+        localStorage.removeItem("fleischAppSettings");
+        location.reload();
+    }
+}
+
+function updateAllMaterialDropdowns() {
+    document.querySelectorAll("[id^=\"current-type-\"]").forEach(select => {
+        const currentValue = select.value;
+        select.innerHTML = "";
+        
+        Object.entries(rawMaterials).forEach(([key, material]) => {
+            const option = document.createElement("option");
+            option.value = key;
+            option.textContent = material.name;
+            select.appendChild(option);
+        });
+        
+        if (rawMaterials[currentValue]) {
+            select.value = currentValue;
+        }
+    });
+}
+
+// Modal schließen bei Escape
+document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") {
+        closeSettingsModal();
+    }
+});
+
