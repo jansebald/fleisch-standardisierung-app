@@ -229,7 +229,13 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
+                // GitHub Pages spezifischer Pfad
+                const isGitHubPages = window.location.hostname === 'jansebald.github.io';
+                const swPath = isGitHubPages ? '/fleisch-standardisierung-app/sw.js' : '/sw.js';
+                
+                navigator.serviceWorker.register(swPath, {
+                    scope: isGitHubPages ? '/fleisch-standardisierung-app/' : '/'
+                })
                     .then((registration) => {
                         console.log('SW registered: ', registration);
                     })
