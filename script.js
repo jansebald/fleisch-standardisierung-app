@@ -96,7 +96,7 @@ function addMaterial() {
             <div class="input-grid">
                 <div class="input-group">
                     <label for="current-type-${newIndex}">Rohstofftyp</label>
-                    <select id="current-type-${newIndex}" onchange="updateCurrentDefaults(${newIndex})">
+                    <select id="current-type-${newIndex}" onchange="updateCurrentDefaults(${newIndex}); updateTotalMixture()">
                         <option value="s3">S III</option>
                         <option value="s8">S VIII</option>
                         <option value="ice">Eis/Wasser</option>
@@ -105,7 +105,7 @@ function addMaterial() {
                 </div>
                 <div class="input-group">
                     <label for="current-protein-${newIndex}">Eiweiß (%)</label>
-                    <input type="number" id="current-protein-${newIndex}" value="17.2" step="0.1" oninput="calculateCurrentBEFFE(${newIndex})">
+                    <input type="number" id="current-protein-${newIndex}" value="17.2" step="0.1" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-fat-${newIndex}">Fett (%)</label>
