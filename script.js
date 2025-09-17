@@ -1959,16 +1959,75 @@ function loadMaterialsList() {
 
 function editMaterial(materialKey) {
     const material = rawMaterials[materialKey];
-    const newName = prompt("Name:", material.name) || material.name;
-    const newProtein = parseFloat(prompt("Eiweiß (%):", material.protein)) || material.protein;
-    const newFat = parseFloat(prompt("Fett (%):", material.fat)) || material.fat;
-    const newWater = parseFloat(prompt("Wasser (%):", material.water)) || material.water;
-    const newLean = parseFloat(prompt("Mageranteil (%):", material.lean)) || material.lean;
-    const newHydroxy = parseFloat(prompt("Hydroxy:", material.hydroxy)) || material.hydroxy;
-    const newPrice = parseFloat(prompt("Preis (€/kg):", material.price)) || material.price;
+    
+    // Erstelle Edit-Modal
+    const modalHtml = `
+        <div class="edit-modal-overlay" onclick="closeEditModal()">
+            <div class="edit-modal-content" onclick="event.stopPropagation()">
+                <div class="edit-modal-header">
+                    <h3>📦 ${material.name} bearbeiten</h3>
+                    <button onclick="closeEditModal()" class="modal-close-btn">✕</button>
+                </div>
+                <form id="editMaterialForm" onsubmit="saveMaterialEdit('${materialKey}'); return false;">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Name</label>
+                            <input type="text" id="edit-name" value="${material.name}" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Eiweiß (%)</label>
+                            <input type="number" id="edit-protein" value="${material.protein}" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Fett (%)</label>
+                            <input type="number" id="edit-fat" value="${material.fat}" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Wasser (%)</label>
+                            <input type="number" id="edit-water" value="${material.water}" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Mageranteil (%)</label>
+                            <input type="number" id="edit-lean" value="${material.lean}" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Hydroxy</label>
+                            <input type="number" id="edit-hydroxy" value="${material.hydroxy}" step="0.01" min="0" max="1" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Preis (€/kg)</label>
+                            <input type="number" id="edit-price" value="${material.price}" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="edit-actions">
+                        <button type="submit" class="save-btn">💾 Speichern</button>
+                        <button type="button" onclick="closeEditModal()" class="cancel-btn">❌ Abbrechen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function saveMaterialEdit(materialKey) {
+    const newName = document.getElementById('edit-name').value;
+    const newProtein = parseFloat(document.getElementById('edit-protein').value);
+    const newFat = parseFloat(document.getElementById('edit-fat').value);
+    const newWater = parseFloat(document.getElementById('edit-water').value);
+    const newLean = parseFloat(document.getElementById('edit-lean').value);
+    const newHydroxy = parseFloat(document.getElementById('edit-hydroxy').value);
+    const newPrice = parseFloat(document.getElementById('edit-price').value);
+    
+    // Validierung
+    if (newProtein + newFat + newWater > 100) {
+        alert('⚠️ Eiweiß + Fett + Wasser darf nicht über 100% sein!');
+        return;
+    }
     
     rawMaterials[materialKey] = {
-        ...material,
+        ...rawMaterials[materialKey],
         name: newName,
         protein: newProtein,
         fat: newFat,
@@ -1978,8 +2037,29 @@ function editMaterial(materialKey) {
         price: newPrice
     };
     
+    closeEditModal();
     loadMaterialsList();
     updateAllMaterialDropdowns();
+    
+    // Feedback
+    showNotification(`✅ ${newName} wurde aktualisiert!`);
+}
+
+function closeEditModal() {
+    const modal = document.querySelector('.edit-modal-overlay');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function deleteMaterial(materialKey) {
+    const material = rawMaterials[materialKey];
+    if (confirm(`Rohstoff "${material.name}" wirklich löschen?\n\nDieser Vorgang kann nicht rückgängig gemacht werden.`)) {
+        delete rawMaterials[materialKey];
+        loadMaterialsList();
+        updateAllMaterialDropdowns();
+        showNotification(`🗑️ ${material.name} wurde gelöscht!`);
+    }
 }
 
 function saveSettings() {
@@ -2013,29 +2093,394 @@ function loadSettingsFromStorage() {
 }
 
 function loadProductsList() {
-    // Placeholder für Produkte-Liste
     const container = document.getElementById("products-list");
-    container.innerHTML = "<p>Produkte-Management wird implementiert...</p>";
+    container.innerHTML = "";
+    
+    Object.entries(productSpecs).forEach(([key, product]) => {
+        const card = document.createElement("div");
+        card.className = "item-card";
+        card.innerHTML = `
+            <div class="item-header">
+                <div class="item-name">${product.name}</div>
+                <div class="item-actions">
+                    <button class="edit-btn" onclick="editProduct('${key}')">✏️ Bearbeiten</button>
+                    ${!['lyoner', 'leberwurst', 'bratwurst', 'hackfleisch'].includes(key) ? 
+                        `<button class="delete-btn" onclick="deleteProduct('${key}')">🗑️ Löschen</button>` : 
+                        ''}
+                </div>
+            </div>
+            <div class="item-grid">
+                <div class="item-field">
+                    <label>Ziel Eiweiß (%)</label>
+                    <input type="number" value="${product.protein}" readonly>
+                </div>
+                <div class="item-field">
+                    <label>Ziel Fett (%)</label>
+                    <input type="number" value="${product.fat}" readonly>
+                </div>
+                <div class="item-field">
+                    <label>Ziel Wasser (%)</label>
+                    <input type="number" value="${product.water}" readonly>
+                </div>
+                <div class="item-field">
+                    <label>Min. BEFFE (%)</label>
+                    <input type="number" value="${product.beffe}" readonly>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function editProduct(productKey) {
+    const product = productSpecs[productKey];
+    
+    const modalHtml = `
+        <div class="edit-modal-overlay" onclick="closeEditModal()">
+            <div class="edit-modal-content" onclick="event.stopPropagation()">
+                <div class="edit-modal-header">
+                    <h3>🎯 ${product.name} bearbeiten</h3>
+                    <button onclick="closeEditModal()" class="modal-close-btn">✕</button>
+                </div>
+                <form id="editProductForm" onsubmit="saveProductEdit('${productKey}'); return false;">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Name</label>
+                            <input type="text" id="edit-product-name" value="${product.name}" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Ziel Eiweiß (%)</label>
+                            <input type="number" id="edit-product-protein" value="${product.protein}" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Ziel Fett (%)</label>
+                            <input type="number" id="edit-product-fat" value="${product.fat}" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Ziel Wasser (%)</label>
+                            <input type="number" id="edit-product-water" value="${product.water}" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Min. BEFFE (%)</label>
+                            <input type="number" id="edit-product-beffe" value="${product.beffe}" step="0.1" min="0" max="100" required>
+                        </div>
+                    </div>
+                    <div class="edit-actions">
+                        <button type="submit" class="save-btn">💾 Speichern</button>
+                        <button type="button" onclick="closeEditModal()" class="cancel-btn">❌ Abbrechen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function saveProductEdit(productKey) {
+    const newName = document.getElementById('edit-product-name').value;
+    const newProtein = parseFloat(document.getElementById('edit-product-protein').value);
+    const newFat = parseFloat(document.getElementById('edit-product-fat').value);
+    const newWater = parseFloat(document.getElementById('edit-product-water').value);
+    const newBeffe = parseFloat(document.getElementById('edit-product-beffe').value);
+    
+    productSpecs[productKey] = {
+        name: newName,
+        protein: newProtein,
+        fat: newFat,
+        water: newWater,
+        beffe: newBeffe
+    };
+    
+    closeEditModal();
+    loadProductsList();
+    updateProductDropdown();
+    
+    showNotification(`✅ ${newName} wurde aktualisiert!`);
+}
+
+function deleteProduct(productKey) {
+    const product = productSpecs[productKey];
+    if (confirm(`Produkt "${product.name}" wirklich löschen?\n\nDieser Vorgang kann nicht rückgängig gemacht werden.`)) {
+        delete productSpecs[productKey];
+        loadProductsList();
+        updateProductDropdown();
+        showNotification(`🗑️ ${product.name} wurde gelöscht!`);
+    }
+}
+
+function updateProductDropdown() {
+    const select = document.getElementById('target-product');
+    if (!select) return;
+    
+    const currentValue = select.value;
+    select.innerHTML = '';
+    
+    Object.entries(productSpecs).forEach(([key, product]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = product.name;
+        select.appendChild(option);
+    });
+    
+    if (productSpecs[currentValue]) {
+        select.value = currentValue;
+    }
 }
 
 function loadAdvancedSettings() {
-    // Placeholder für erweiterte Einstellungen
+    const settings = JSON.parse(localStorage.getItem('fleischAppSettings')) || {};
+    
+    document.getElementById('tolerance-protein').value = settings.toleranceProtein || 0.5;
+    document.getElementById('tolerance-fat').value = settings.toleranceFat || 1.0;
+    document.getElementById('tolerance-water').value = settings.toleranceWater || 2.0;
+    document.getElementById('tolerance-beffe').value = settings.toleranceBeffe || 0.5;
+}
+
+// Notification-System
+function showNotification(message) {
+    // Entferne existierende Notification
+    const existing = document.querySelector('.notification');
+    if (existing) {
+        existing.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Einblenden
+    setTimeout(() => notification.classList.add('show'), 100);
+    
+    // Ausblenden nach 3 Sekunden
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 function addNewMaterial() {
-    alert("Neue Rohstoff-Funktion wird implementiert...");
+    const modalHtml = `
+        <div class="edit-modal-overlay" onclick="closeEditModal()">
+            <div class="edit-modal-content" onclick="event.stopPropagation()">
+                <div class="edit-modal-header">
+                    <h3>➕ Neuer Rohstoff</h3>
+                    <button onclick="closeEditModal()" class="modal-close-btn">✕</button>
+                </div>
+                <form id="addMaterialForm" onsubmit="saveNewMaterial(); return false;">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Eindeutiger Schlüssel</label>
+                            <input type="text" id="new-material-key" placeholder="z.B. new_material" required pattern="[a-z0-9_]+" title="Nur Kleinbuchstaben, Zahlen und Unterstriche">
+                        </div>
+                        <div class="edit-field">
+                            <label>Name</label>
+                            <input type="text" id="new-material-name" placeholder="z.B. Neuer Rohstoff" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Eiweiß (%)</label>
+                            <input type="number" id="new-material-protein" value="15" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Fett (%)</label>
+                            <input type="number" id="new-material-fat" value="20" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Wasser (%)</label>
+                            <input type="number" id="new-material-water" value="65" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Mageranteil (%)</label>
+                            <input type="number" id="new-material-lean" value="80" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Hydroxy</label>
+                            <input type="number" id="new-material-hydroxy" value="0.08" step="0.01" min="0" max="1" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Preis (€/kg)</label>
+                            <input type="number" id="new-material-price" value="4.00" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="edit-actions">
+                        <button type="submit" class="save-btn">➕ Hinzufügen</button>
+                        <button type="button" onclick="closeEditModal()" class="cancel-btn">❌ Abbrechen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function saveNewMaterial() {
+    const key = document.getElementById('new-material-key').value;
+    const name = document.getElementById('new-material-name').value;
+    const protein = parseFloat(document.getElementById('new-material-protein').value);
+    const fat = parseFloat(document.getElementById('new-material-fat').value);
+    const water = parseFloat(document.getElementById('new-material-water').value);
+    const lean = parseFloat(document.getElementById('new-material-lean').value);
+    const hydroxy = parseFloat(document.getElementById('new-material-hydroxy').value);
+    const price = parseFloat(document.getElementById('new-material-price').value);
+    
+    // Validierung
+    if (rawMaterials[key]) {
+        alert('⚠️ Schlüssel bereits vorhanden! Bitte wählen Sie einen anderen.');
+        return;
+    }
+    
+    if (protein + fat + water > 100) {
+        alert('⚠️ Eiweiß + Fett + Wasser darf nicht über 100% sein!');
+        return;
+    }
+    
+    rawMaterials[key] = {
+        name, protein, fat, water, lean, hydroxy, price
+    };
+    
+    closeEditModal();
+    loadMaterialsList();
+    updateAllMaterialDropdowns();
+    
+    showNotification(`✅ ${name} wurde hinzugefügt!`);
 }
 
 function addNewProduct() {
-    alert("Neue Produkt-Funktion wird implementiert...");
+    const modalHtml = `
+        <div class="edit-modal-overlay" onclick="closeEditModal()">
+            <div class="edit-modal-content" onclick="event.stopPropagation()">
+                <div class="edit-modal-header">
+                    <h3>➕ Neues Produkt</h3>
+                    <button onclick="closeEditModal()" class="modal-close-btn">✕</button>
+                </div>
+                <form id="addProductForm" onsubmit="saveNewProduct(); return false;">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Eindeutiger Schlüssel</label>
+                            <input type="text" id="new-product-key" placeholder="z.B. new_product" required pattern="[a-z0-9_]+" title="Nur Kleinbuchstaben, Zahlen und Unterstriche">
+                        </div>
+                        <div class="edit-field">
+                            <label>Name</label>
+                            <input type="text" id="new-product-name" placeholder="z.B. Neues Produkt" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Ziel Eiweiß (%)</label>
+                            <input type="number" id="new-product-protein" value="15" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Ziel Fett (%)</label>
+                            <input type="number" id="new-product-fat" value="20" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Ziel Wasser (%)</label>
+                            <input type="number" id="new-product-water" value="65" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="edit-field">
+                            <label>Min. BEFFE (%)</label>
+                            <input type="number" id="new-product-beffe" value="10" step="0.1" min="0" max="100" required>
+                        </div>
+                    </div>
+                    <div class="edit-actions">
+                        <button type="submit" class="save-btn">➕ Hinzufügen</button>
+                        <button type="button" onclick="closeEditModal()" class="cancel-btn">❌ Abbrechen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function saveNewProduct() {
+    const key = document.getElementById('new-product-key').value;
+    const name = document.getElementById('new-product-name').value;
+    const protein = parseFloat(document.getElementById('new-product-protein').value);
+    const fat = parseFloat(document.getElementById('new-product-fat').value);
+    const water = parseFloat(document.getElementById('new-product-water').value);
+    const beffe = parseFloat(document.getElementById('new-product-beffe').value);
+    
+    // Validierung
+    if (productSpecs[key]) {
+        alert('⚠️ Schlüssel bereits vorhanden! Bitte wählen Sie einen anderen.');
+        return;
+    }
+    
+    productSpecs[key] = {
+        name, protein, fat, water, beffe
+    };
+    
+    closeEditModal();
+    loadProductsList();
+    updateProductDropdown();
+    
+    showNotification(`✅ ${name} wurde hinzugefügt!`);
 }
 
 function exportSettings() {
-    alert("Export-Funktion wird implementiert...");
+    const settings = {
+        rawMaterials: rawMaterials,
+        productSpecs: productSpecs,
+        toleranceProtein: parseFloat(document.getElementById('tolerance-protein')?.value || 0.5),
+        toleranceFat: parseFloat(document.getElementById('tolerance-fat')?.value || 1.0),
+        toleranceWater: parseFloat(document.getElementById('tolerance-water')?.value || 2.0),
+        toleranceBeffe: parseFloat(document.getElementById('tolerance-beffe')?.value || 0.5),
+        exportDate: new Date().toISOString(),
+        appVersion: "1.0.0"
+    };
+    
+    const dataStr = JSON.stringify(settings, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `fleisch-app-settings-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    showNotification('📤 Einstellungen exportiert!');
 }
 
 function importSettings() {
-    alert("Import-Funktion wird implementiert...");
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const settings = JSON.parse(e.target.result);
+                
+                if (settings.rawMaterials) {
+                    Object.assign(rawMaterials, settings.rawMaterials);
+                }
+                if (settings.productSpecs) {
+                    Object.assign(productSpecs, settings.productSpecs);
+                }
+                
+                localStorage.setItem('fleischAppSettings', JSON.stringify(settings));
+                
+                showNotification('📥 Einstellungen erfolgreich importiert!');
+                loadMaterialsList();
+                loadProductsList();
+                loadAdvancedSettings();
+                updateAllMaterialDropdowns();
+                updateProductDropdown();
+                
+            } catch (error) {
+                alert('❌ Fehler beim Importieren: ' + error.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    
+    input.click();
 }
 
 function resetToDefaults() {
