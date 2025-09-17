@@ -36,7 +36,7 @@ Diese Web-App optimiert Fleischmischungen basierend auf:
 
 ## 🚀 Live-Demo
 
-**[Demo hier ausprobieren](https://IhrUsername.github.io/fleisch-standardisierung-app)**
+**[Demo hier ausprobieren](https://jansebald.github.io/fleisch-standardisierung-app)**
 
 ## 📋 Anforderungen
 
@@ -120,9 +120,9 @@ Basierend auf den "Leitsätzen für Fleisch und Fleischerzeugnisse" des Deutsche
 
 ## 🤝 Mitwirkende
 
-- **Entwicklung**: [Ihr Name]
-- **Fachberatung**: [Lehrer/Betreuer]
-- **Testing**: [Projektteam]
+- **Entwicklung**: [Jonas Gagesch, Jan Sebald]
+- **Fachberatung**: [Tobias Wiesner, Daniel Vonbrunn/Betreuer]
+- **Testing**: [Jonas Gagesch, Jan Sebald]
 
 ## 📄 Lizenz
 
