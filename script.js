@@ -8,30 +8,60 @@ let materialCount = 1;
 
 // Produktspezifikationen
 const productSpecs = {
-    lyoner: { protein: 12.0, fat: 25.0, water: 62.0, beffe: 10.0, name: "Lyoner" },
-    leberwurst: { protein: 14.0, fat: 28.0, water: 57.0, beffe: 8.0, name: "Leberwurst" },
-    bratwurst: { protein: 16.0, fat: 22.0, water: 61.0, beffe: 12.0, name: "Bratwurst" },
-    hackfleisch: { protein: 18.0, fat: 15.0, water: 66.0, beffe: 14.0, name: "Hackfleisch" }
+    lyoner: { protein: 12.0, fat: 25.0, water: 62.0, be: 3.0, beffe: 9.0, name: "Lyoner" },
+    leberwurst: { protein: 14.0, fat: 28.0, water: 57.0, be: 3.5, beffe: 10.5, name: "Leberwurst" },
+    bratwurst: { protein: 16.0, fat: 22.0, water: 61.0, be: 4.0, beffe: 12.0, name: "Bratwurst" },
+    hackfleisch: { protein: 18.0, fat: 15.0, water: 66.0, be: 4.5, beffe: 13.5, name: "Hackfleisch" }
 };
 
 // Standard-Rohstoffe mit Eigenschaften
 const rawMaterials = {
-    "s3": { protein: 17.2, fat: 14.5, water: 67.3, lean: 85.0, hydroxy: 0.10, price: 5.50, name: "S III" },
-    "s8": { protein: 2.5, fat: 88.0, water: 8.5, lean: 12.0, hydroxy: 0.02, price: 3.20, name: "S VIII" },
-    "ice": { protein: 0.0, fat: 0.0, water: 100.0, lean: 0.0, hydroxy: 0.0, price: 0.05, name: "Eis/Wasser" },
-    "custom": { protein: 15.0, fat: 20.0, water: 64.0, lean: 80.0, hydroxy: 0.08, price: 4.00, name: "Benutzerdefiniert" }
+    "s3": { protein: 17.2, fat: 14.5, water: 67.3, be: 1.0, hydroxy: 0.10, price: 5.50, name: "S III" },
+    "s8": { protein: 2.5, fat: 88.0, water: 8.5, be: 0.2, hydroxy: 0.02, price: 3.20, name: "S VIII" },
+    "ice": { protein: 0.0, fat: 0.0, water: 100.0, be: 0.0, hydroxy: 0.0, price: 0.05, name: "Eis/Wasser" },
+    "custom": { protein: 15.0, fat: 20.0, water: 64.0, be: 1.2, hydroxy: 0.08, price: 4.00, name: "Benutzerdefiniert" }
 };
 
 // App initialisieren
 document.addEventListener('DOMContentLoaded', function() {
+    // Cache automatisch beim Neuladen löschen
+    clearAppCache();
+
     updateCurrentDefaults(0);
     updateTargetSpecs();
     calculateCurrentBEFFE(0);
     updateTotalMixture();
-    
-    // Settings aus LocalStorage laden
+
+    // Settings aus LocalStorage laden (nach Cache-Reset)
     loadSettingsFromStorage();
 });
+
+// Cache löschen (aber Settings behalten)
+function clearAppCache() {
+    // Browser-Cache leeren (soweit möglich)
+    if ('caches' in window) {
+        caches.keys().then(names => {
+            names.forEach(name => {
+                caches.delete(name);
+            });
+        });
+    }
+
+    // Session Storage leeren
+    sessionStorage.clear();
+
+    // Nur spezifische localStorage-Einträge entfernen, Settings behalten
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && !key.includes('settings') && !key.includes('rawMaterials') && !key.includes('productSpecs')) {
+            keysToRemove.push(key);
+        }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+
+    console.log('🧹 Cache wurde automatisch geleert (Settings bleiben erhalten)');
+}
 
 // Aktuelle Rohstoff-Defaults aktualisieren
 function updateCurrentDefaults(index) {
@@ -41,7 +71,7 @@ function updateCurrentDefaults(index) {
         document.getElementById(`current-protein-${index}`).value = material.protein.toFixed(1);
         document.getElementById(`current-fat-${index}`).value = material.fat.toFixed(1);
         document.getElementById(`current-water-${index}`).value = material.water.toFixed(1);
-        document.getElementById(`current-lean-${index}`).value = material.lean.toFixed(1);
+        document.getElementById(`current-be-${index}`).value = material.be.toFixed(1);
         calculateCurrentBEFFE(index);
     }
     updateTotalMixture();
@@ -55,6 +85,7 @@ function updateTargetSpecs() {
         document.getElementById('target-protein').value = spec.protein;
         document.getElementById('target-fat').value = spec.fat;
         document.getElementById('target-water').value = spec.water;
+        document.getElementById('target-be').value = spec.be;
         document.getElementById('target-beffe').value = spec.beffe;
     }
 }
@@ -62,16 +93,15 @@ function updateTargetSpecs() {
 // Aktuelle BEFFE berechnen
 function calculateCurrentBEFFE(index) {
     const protein = parseFloat(document.getElementById(`current-protein-${index}`).value) || 0;
-    const type = document.getElementById(`current-type-${index}`).value;
-    const hydroxy = rawMaterials[type]?.hydroxy || 0.08;
-    
+    const be = parseFloat(document.getElementById(`current-be-${index}`).value) || 0;
+
     if (protein > 0) {
-        const bindegewebsEiweiß = hydroxy * 8;
-        const beffe = protein - bindegewebsEiweiß;
-        
+        // BEFFE = Fleischeiweiß - Bindegewebseiweiß
+        const beffe = protein - be;
+
         // Setze den berechneten BEFFE-Wert in das manuelle Input-Feld
         document.getElementById(`current-beffe-manual-${index}`).value = beffe.toFixed(1);
-        
+
         updateBEFFEDisplay(index);
     }
     updateTotalMixture();
@@ -119,8 +149,8 @@ function addMaterial() {
                     <input type="number" id="current-water-${newIndex}" value="67.3" step="0.1" oninput="updateTotalMixture()">
                 </div>
                 <div class="input-group">
-                    <label for="current-lean-${newIndex}">Mageranteil (%)</label>
-                    <input type="number" id="current-lean-${newIndex}" value="85.0" step="0.1" oninput="updateTotalMixture()">
+                    <label for="current-be-${newIndex}">BE - Bindegewebseiweiß (%)</label>
+                    <input type="number" id="current-be-${newIndex}" value="1.0" step="0.1" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-amount-${newIndex}">Verfügbare Menge (kg)</label>
@@ -191,7 +221,7 @@ function updateTotalMixture() {
     let totalProtein = 0;
     let totalFat = 0;
     let totalWater = 0;
-    let totalLean = 0;
+    let totalBE = 0;
     let totalBEFFE = 0;
     
     materials.forEach(material => {
@@ -200,7 +230,7 @@ function updateTotalMixture() {
         totalProtein += material.protein * amount;
         totalFat += material.fat * amount;
         totalWater += material.water * amount;
-        totalLean += material.lean * amount;
+        totalBE += material.be * amount;
         totalBEFFE += material.beffe * amount;
     });
     
@@ -208,7 +238,7 @@ function updateTotalMixture() {
     const avgProtein = totalAmount > 0 ? totalProtein / totalAmount : 0;
     const avgFat = totalAmount > 0 ? totalFat / totalAmount : 0;
     const avgWater = totalAmount > 0 ? totalWater / totalAmount : 0;
-    const avgLean = totalAmount > 0 ? totalLean / totalAmount : 0;
+    const avgBE = totalAmount > 0 ? totalBE / totalAmount : 0;
     const avgBEFFE = totalAmount > 0 ? totalBEFFE / totalAmount : 0;
     
     // Anzeige aktualisieren
@@ -216,7 +246,7 @@ function updateTotalMixture() {
     document.getElementById('total-protein').textContent = `${avgProtein.toFixed(1)}%`;
     document.getElementById('total-fat').textContent = `${avgFat.toFixed(1)}%`;
     document.getElementById('total-water').textContent = `${avgWater.toFixed(1)}%`;
-    document.getElementById('total-lean').textContent = `${avgLean.toFixed(1)}%`;
+    document.getElementById('total-be').textContent = `${avgBE.toFixed(1)}%`;
     document.getElementById('total-beffe').textContent = `${avgBEFFE.toFixed(1)}%`;
 }
 
@@ -231,11 +261,11 @@ function getAllMaterials() {
         const proteinElement = document.getElementById(`current-protein-${index}`);
         const fatElement = document.getElementById(`current-fat-${index}`);
         const waterElement = document.getElementById(`current-water-${index}`);
-        const leanElement = document.getElementById(`current-lean-${index}`);
+        const beElement = document.getElementById(`current-be-${index}`);
         const amountElement = document.getElementById(`current-amount-${index}`);
         const beffeElement = document.getElementById(`current-beffe-manual-${index}`);
         
-        if (typeElement && proteinElement && fatElement && waterElement && leanElement && amountElement && beffeElement) {
+        if (typeElement && proteinElement && fatElement && waterElement && beElement && amountElement && beffeElement) {
             const type = typeElement.value;
             materials.push({
                 index: parseInt(index),
@@ -244,7 +274,7 @@ function getAllMaterials() {
                 protein: parseFloat(proteinElement.value) || 0,
                 fat: parseFloat(fatElement.value) || 0,
                 water: parseFloat(waterElement.value) || 0,
-                lean: parseFloat(leanElement.value) || 0,
+                be: parseFloat(beElement.value) || 0,
                 amount: parseFloat(amountElement.value) || 0,
                 beffe: parseFloat(beffeElement.value) || 0,
                 hydroxy: rawMaterials[type]?.hydroxy || 0.08,
@@ -265,6 +295,7 @@ function calculateCurrentMixture(materials) {
             protein: 0,
             fat: 0,
             water: 0,
+            be: 0,
             beffe: 0,
             amount: 0,
             price: 0,
@@ -276,6 +307,7 @@ function calculateCurrentMixture(materials) {
     let totalProtein = 0;
     let totalFat = 0;
     let totalWater = 0;
+    let totalBE = 0;
     let totalBEFFE = 0;
     let totalCost = 0;
     let weightedHydroxy = 0;
@@ -286,6 +318,7 @@ function calculateCurrentMixture(materials) {
         totalProtein += material.protein * amount;
         totalFat += material.fat * amount;
         totalWater += material.water * amount;
+        totalBE += material.be * amount;
         totalBEFFE += material.beffe * amount;
         totalCost += material.price * amount;
         weightedHydroxy += material.hydroxy * amount;
@@ -298,6 +331,7 @@ function calculateCurrentMixture(materials) {
             protein: 0,
             fat: 0,
             water: 0,
+            be: 0,
             beffe: 0,
             amount: 0,
             price: 0,
@@ -311,6 +345,7 @@ function calculateCurrentMixture(materials) {
         protein: totalProtein / totalAmount,
         fat: totalFat / totalAmount,
         water: totalWater / totalAmount,
+        be: totalBE / totalAmount,
         beffe: totalBEFFE / totalAmount,
         amount: totalAmount,
         price: totalCost / totalAmount,
@@ -374,6 +409,7 @@ function getTargetSpecs() {
         protein: parseFloat(document.getElementById('target-protein').value),
         fat: parseFloat(document.getElementById('target-fat').value),
         water: parseFloat(document.getElementById('target-water').value),
+        be: parseFloat(document.getElementById('target-be').value),
         beffe: parseFloat(document.getElementById('target-beffe').value),
         quantity: parseFloat(document.getElementById('target-quantity').value)
     };
@@ -502,27 +538,46 @@ function formatAmountDescription(amount, materialName) {
 // Leitsätze prüfen
 function checkLeitsaetze(mix, target) {
     console.log(`🔍 Prüfe Leitsätze: ${mix.protein.toFixed(1)}% Eiweiß, ${mix.fat.toFixed(1)}% Fett, ${mix.water.toFixed(1)}% Wasser, ${mix.beffe.toFixed(1)}% BEFFE`);
-    
+
     // Toleranzen für Leitsätze (lockerer als vorher)
     const tolerance = {
         protein: 2.0,   // ±2% Eiweiß
-        fat: 5.0,       // ±5% Fett  
+        fat: 5.0,       // ±5% Fett
         water: 3.0,     // ±3% Wasser
         beffe: -1.0     // BEFFE muss mindestens erreicht werden
     };
-    
+
     const proteinOk = Math.abs(mix.protein - target.protein) <= tolerance.protein;
     const fatOk = Math.abs(mix.fat - target.fat) <= tolerance.fat;
     const waterOk = Math.abs(mix.water - target.water) <= tolerance.water;
     const beffeOk = mix.beffe >= (target.beffe + tolerance.beffe);
-    
+
+    // Lyoner-spezifische Regel: Wasser ≤ 30% bezogen auf BEFFE
+    let lyonerWaterOk = true;
+    const productType = document.getElementById('target-product')?.value;
+    if (productType === 'lyoner') {
+        const maxWaterRatio = mix.water / mix.beffe;
+        lyonerWaterOk = maxWaterRatio <= 30.0;
+        console.log(`🔍 Lyoner-Regel: Wasser/BEFFE = ${maxWaterRatio.toFixed(1)} (≤30.0): ${lyonerWaterOk ? '✅' : '❌'}`);
+    }
+
+    // BE/FE-Verhältnis prüfen: BE ≤ 25% von FE (Fleischeiweiß)
+    const fleischeiweiss = mix.protein; // FE = Gesamteiweiß (vereinfacht)
+    const beFeRatio = fleischeiweiss > 0 ? (mix.be / fleischeiweiss) * 100 : 0;
+    const beFeOk = beFeRatio <= 25.0;
+    console.log(`🔍 BE/FE-Verhältnis: ${beFeRatio.toFixed(1)}% (≤25.0%): ${beFeOk ? '✅' : '❌'}`);
+
+    // BE darf nicht höher als Zielwert sein
+    const beTargetOk = mix.be <= target.be;
+    console.log(`🔍 BE-Zielwert: ${mix.be.toFixed(1)}% ≤ ${target.be.toFixed(1)}%: ${beTargetOk ? '✅' : '❌'}`);
+
     // Detaillierte Debug-Ausgaben
     console.log(`🔍 ZIEL: ${target.protein}% Eiweiß, ${target.fat}% Fett, ${target.water}% Wasser, ${target.beffe}% BEFFE`);
     console.log(`🔍 IST:  ${mix.protein.toFixed(1)}% Eiweiß, ${mix.fat.toFixed(1)}% Fett, ${mix.water.toFixed(1)}% Wasser, ${mix.beffe.toFixed(1)}% BEFFE`);
     console.log(`🔍 DIFF: ${Math.abs(mix.protein - target.protein).toFixed(1)} Eiweiß (≤${tolerance.protein}), ${Math.abs(mix.fat - target.fat).toFixed(1)} Fett (≤${tolerance.fat}), ${Math.abs(mix.water - target.water).toFixed(1)} Wasser (≤${tolerance.water}), BEFFE: ${mix.beffe.toFixed(1)} ≥ ${(target.beffe + tolerance.beffe).toFixed(1)}`);
-    console.log(`🔍 Leitsätze-Check: Protein ${proteinOk}, Fett ${fatOk}, Wasser ${waterOk}, BEFFE ${beffeOk}`);
-    
-    return proteinOk && fatOk && waterOk && beffeOk;
+    console.log(`🔍 Leitsätze-Check: Protein ${proteinOk}, Fett ${fatOk}, Wasser ${waterOk}, BEFFE ${beffeOk}, Lyoner-Wasser ${lyonerWaterOk}, BE/FE ${beFeOk}, BE-Ziel ${beTargetOk}`);
+
+    return proteinOk && fatOk && waterOk && beffeOk && lyonerWaterOk && beFeOk && beTargetOk;
 }
 
 // Strategie 2: Wasser + minimaler Rohstoff-Zusatz
@@ -1987,8 +2042,8 @@ function editMaterial(materialKey) {
                             <input type="number" id="edit-water" value="${material.water}" step="0.1" min="0" max="100" required>
                         </div>
                         <div class="edit-field">
-                            <label>Mageranteil (%)</label>
-                            <input type="number" id="edit-lean" value="${material.lean}" step="0.1" min="0" max="100" required>
+                            <label>BE - Bindegewebseiweiß (%)</label>
+                            <input type="number" id="edit-be" value="${material.be}" step="0.1" min="0" max="100" required>
                         </div>
                         <div class="edit-field">
                             <label>Hydroxy</label>
@@ -2016,7 +2071,7 @@ function saveMaterialEdit(materialKey) {
     const newProtein = parseFloat(document.getElementById('edit-protein').value);
     const newFat = parseFloat(document.getElementById('edit-fat').value);
     const newWater = parseFloat(document.getElementById('edit-water').value);
-    const newLean = parseFloat(document.getElementById('edit-lean').value);
+    const newBE = parseFloat(document.getElementById('edit-be').value);
     const newHydroxy = parseFloat(document.getElementById('edit-hydroxy').value);
     const newPrice = parseFloat(document.getElementById('edit-price').value);
     
@@ -2032,7 +2087,7 @@ function saveMaterialEdit(materialKey) {
         protein: newProtein,
         fat: newFat,
         water: newWater,
-        lean: newLean,
+        be: newBE,
         hydroxy: newHydroxy,
         price: newPrice
     };
@@ -2292,8 +2347,8 @@ function addNewMaterial() {
                             <input type="number" id="new-material-water" value="65" step="0.1" min="0" max="100" required>
                         </div>
                         <div class="edit-field">
-                            <label>Mageranteil (%)</label>
-                            <input type="number" id="new-material-lean" value="80" step="0.1" min="0" max="100" required>
+                            <label>BE - Bindegewebseiweiß (%)</label>
+                            <input type="number" id="new-material-be" value="1.2" step="0.1" min="0" max="100" required>
                         </div>
                         <div class="edit-field">
                             <label>Hydroxy</label>
@@ -2322,7 +2377,7 @@ function saveNewMaterial() {
     const protein = parseFloat(document.getElementById('new-material-protein').value);
     const fat = parseFloat(document.getElementById('new-material-fat').value);
     const water = parseFloat(document.getElementById('new-material-water').value);
-    const lean = parseFloat(document.getElementById('new-material-lean').value);
+    const be = parseFloat(document.getElementById('new-material-be').value);
     const hydroxy = parseFloat(document.getElementById('new-material-hydroxy').value);
     const price = parseFloat(document.getElementById('new-material-price').value);
     
@@ -2338,7 +2393,7 @@ function saveNewMaterial() {
     }
     
     rawMaterials[key] = {
-        name, protein, fat, water, lean, hydroxy, price
+        name, protein, fat, water, be, hydroxy, price
     };
     
     closeEditModal();
