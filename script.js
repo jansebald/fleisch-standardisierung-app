@@ -1010,11 +1010,18 @@ function generateWaterSuggestion(current, target) {
     const finalAmount = Math.min(totalWithWater, target.quantity);
     const actualWaterAmount = finalAmount - current.amount;
     
+    const protein = (current.protein * current.amount + waterMaterial.protein * actualWaterAmount) / finalAmount;
+    const hydroxy = (current.hydroxy * current.amount + waterMaterial.hydroxy * actualWaterAmount) / finalAmount;
+    const bindegewebsEiweiß = hydroxy * 8;
+
     const mix = {
-        protein: (current.protein * current.amount + waterMaterial.protein * actualWaterAmount) / finalAmount,
+        protein: protein,
         fat: (current.fat * current.amount + waterMaterial.fat * actualWaterAmount) / finalAmount,
         water: (current.water * current.amount + waterMaterial.water * actualWaterAmount) / finalAmount,
-        beffe: (current.beffe * current.amount + 0 * actualWaterAmount) / finalAmount
+        beffe: (current.beffe * current.amount + 0 * actualWaterAmount) / finalAmount,
+        hydroxy: hydroxy,
+        bindegewebsEiweiß: bindegewebsEiweiß,
+        be: bindegewebsEiweiß
     };
     
     console.log(`💧 Mischung mit Wasser: ${mix.protein.toFixed(1)}% Eiweiß, ${mix.fat.toFixed(1)}% Fett, ${mix.water.toFixed(1)}% Wasser, ${mix.beffe.toFixed(1)}% BEFFE`);
@@ -1153,11 +1160,18 @@ function calculateMultiMaterialMixture(current, additionalMaterials, target) {
         totalBEFFE += calculateBEFFEFromValues(item.material.protein, item.material.hydroxy) * item.amount;
     });
     
+    const protein = totalProtein / totalAmount;
+    const hydroxy = additionalMaterials.reduce((sum, item) => sum + item.material.hydroxy * item.amount, current.hydroxy * current.amount) / totalAmount;
+    const bindegewebsEiweiß = hydroxy * 8;
+
     return {
-        protein: totalProtein / totalAmount,
+        protein: protein,
         fat: totalFat / totalAmount,
         water: totalWater / totalAmount,
-        beffe: totalBEFFE / totalAmount
+        beffe: totalBEFFE / totalAmount,
+        be: bindegewebsEiweiß,
+        hydroxy: hydroxy,
+        bindegewebsEiweiß: bindegewebsEiweiß
     };
 }
 
@@ -1352,7 +1366,7 @@ function calculateMixture(material1, material2, ratio1, ratio2) {
     const beffe = protein - bindegewebsEiweiß;
     const wew = water / protein;
     
-    return { protein, fat, water, hydroxy, beffe, wew, bindegewebsEiweiß };
+    return { protein, fat, water, hydroxy, beffe, wew, bindegewebsEiweiß, be: bindegewebsEiweiß };
 }
 
 // BEFFE aus Protein und Hydroxy berechnen
