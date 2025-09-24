@@ -491,11 +491,18 @@ function calculateMaxWaterAddition(current, target) {
     const waterMaterial = rawMaterials.ice;
     const finalAmount = current.amount + maxPossibleWater;
     
+    const protein = (current.protein * current.amount + waterMaterial.protein * maxPossibleWater) / finalAmount;
+    const hydroxy = (current.hydroxy * current.amount + waterMaterial.hydroxy * maxPossibleWater) / finalAmount;
+    const bindegewebsEiweiß = hydroxy * 8;
+
     const finalMix = {
-        protein: (current.protein * current.amount + waterMaterial.protein * maxPossibleWater) / finalAmount,
+        protein: protein,
         fat: (current.fat * current.amount + waterMaterial.fat * maxPossibleWater) / finalAmount,
         water: (current.water * current.amount + waterMaterial.water * maxPossibleWater) / finalAmount,
-        beffe: (current.beffe * current.amount + 0 * maxPossibleWater) / finalAmount
+        beffe: (current.beffe * current.amount + 0 * maxPossibleWater) / finalAmount,
+        hydroxy: hydroxy,
+        bindegewebsEiweiß: bindegewebsEiweiß,
+        be: bindegewebsEiweiß
     };
     
     console.log(`💧 Finale Mischung: ${finalMix.protein.toFixed(1)}% Eiweiß, ${finalMix.fat.toFixed(1)}% Fett, ${finalMix.water.toFixed(1)}% Wasser`);
@@ -600,11 +607,18 @@ function calculateWaterPlusMinimal(current, target) {
             const finalAmount = current.amount + waterAmount + materialAmount;
             const waterMaterial = rawMaterials.ice;
             
+            const protein = (current.protein * current.amount + waterMaterial.protein * waterAmount + material.protein * materialAmount) / finalAmount;
+            const hydroxy = (current.hydroxy * current.amount + waterMaterial.hydroxy * waterAmount + material.hydroxy * materialAmount) / finalAmount;
+            const bindegewebsEiweiß = hydroxy * 8;
+
             const finalMix = {
-                protein: (current.protein * current.amount + waterMaterial.protein * waterAmount + material.protein * materialAmount) / finalAmount,
+                protein: protein,
                 fat: (current.fat * current.amount + waterMaterial.fat * waterAmount + material.fat * materialAmount) / finalAmount,
                 water: (current.water * current.amount + waterMaterial.water * waterAmount + material.water * materialAmount) / finalAmount,
-                beffe: (current.beffe * current.amount + 0 * waterAmount + calculateBEFFEFromValues(material.protein, material.hydroxy) * materialAmount) / finalAmount
+                beffe: (current.beffe * current.amount + 0 * waterAmount + calculateBEFFEFromValues(material.protein, material.hydroxy) * materialAmount) / finalAmount,
+                hydroxy: hydroxy,
+                bindegewebsEiweiß: bindegewebsEiweiß,
+                be: bindegewebsEiweiß
             };
             
             if (checkLeitsaetze(finalMix, target)) {
@@ -814,11 +828,18 @@ function calculateWaterOptimization(current, material, target, baseAmount) {
     const materialRatio = optimizedMaterialAmount / totalAmount;
     const waterRatio = maxWaterAmount / totalAmount;
     
+    const protein = (current.protein * currentRatio) + (material.protein * materialRatio) + (waterMaterial.protein * waterRatio);
+    const hydroxy = (current.hydroxy * currentRatio) + (material.hydroxy * materialRatio) + (waterMaterial.hydroxy * waterRatio);
+    const bindegewebsEiweiß = hydroxy * 8;
+
     const optimizedMix = {
-        protein: (current.protein * currentRatio) + (material.protein * materialRatio) + (waterMaterial.protein * waterRatio),
+        protein: protein,
         fat: (current.fat * currentRatio) + (material.fat * materialRatio) + (waterMaterial.fat * waterRatio),
         water: (current.water * currentRatio) + (material.water * materialRatio) + (waterMaterial.water * waterRatio),
-        beffe: (current.beffe * currentRatio) + (calculateBEFFEFromValues(material.protein, material.hydroxy) * materialRatio) + (0 * waterRatio)
+        beffe: (current.beffe * currentRatio) + (calculateBEFFEFromValues(material.protein, material.hydroxy) * materialRatio) + (0 * waterRatio),
+        hydroxy: hydroxy,
+        bindegewebsEiweiß: bindegewebsEiweiß,
+        be: bindegewebsEiweiß
     };
     
     // Prüfe ob optimierte Mischung noch legal ist
@@ -1100,11 +1121,18 @@ function generateAdditionalWaterSuggestion(current, material, materialAmount, ta
     // Berechne finale Mischung mit Wasser
     const waterMaterial = rawMaterials.ice;
     
+    const protein = (current.protein * current.amount + material.protein * materialAmount + waterMaterial.protein * neededWaterAmount) / finalAmount;
+    const hydroxy = (current.hydroxy * current.amount + material.hydroxy * materialAmount + waterMaterial.hydroxy * neededWaterAmount) / finalAmount;
+    const bindegewebsEiweiß = hydroxy * 8;
+
     const finalMix = {
-        protein: (current.protein * current.amount + material.protein * materialAmount + waterMaterial.protein * neededWaterAmount) / finalAmount,
+        protein: protein,
         fat: (current.fat * current.amount + material.fat * materialAmount + waterMaterial.fat * neededWaterAmount) / finalAmount,
         water: (current.water * current.amount + material.water * materialAmount + waterMaterial.water * neededWaterAmount) / finalAmount,
-        beffe: (current.beffe * current.amount + calculateBEFFEFromValues(material.protein, material.hydroxy) * materialAmount + 0 * neededWaterAmount) / finalAmount
+        beffe: (current.beffe * current.amount + calculateBEFFEFromValues(material.protein, material.hydroxy) * materialAmount + 0 * neededWaterAmount) / finalAmount,
+        hydroxy: hydroxy,
+        bindegewebsEiweiß: bindegewebsEiweiß,
+        be: bindegewebsEiweiß
     };
     
     console.log(`💧🔄 Detaillierte Berechnung:`);
