@@ -1383,6 +1383,27 @@ body {
     background: linear-gradient(135deg, #3498db, #2980b9);
 }
 
+/* Downsizing Optimization Badges */
+.suggestion-badge.downsize {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+    color: white;
+}
+
+/* Material Addition/Reduction Styling */
+.material-addition.reduction {
+    background: rgba(231, 76, 60, 0.1);
+    border-left: 3px solid #e74c3c;
+    color: #c0392b;
+    font-weight: 600;
+}
+
+.material-addition.addition {
+    background: rgba(46, 204, 113, 0.1);
+    border-left: 3px solid #2ecc71;
+    color: #27ae60;
+    font-weight: 600;
+}
+
 /* Settings Modal */
 .modal-overlay {
     position: fixed;

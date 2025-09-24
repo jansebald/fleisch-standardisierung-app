@@ -452,7 +452,21 @@ function generateWaterOptimizations(current, target) {
     console.log(`🚀 Starte Wasser-Optimierung:`);
     console.log(`Aktuell: ${current.protein.toFixed(1)}% Eiweiß, ${current.fat.toFixed(1)}% Fett, ${current.water.toFixed(1)}% Wasser (${current.amount}kg)`);
     console.log(`Ziel: ${target.protein}% Eiweiß, ${target.fat}% Fett, ${target.water}% Wasser (${target.quantity}kg)`);
-    
+
+    // NEUE LOGIK: Prüfe ob Downsizing erforderlich ist
+    if (current.amount > target.quantity) {
+        console.log(`📉 Downsizing erforderlich: ${current.amount}kg → ${target.quantity}kg`);
+        const downsizeOptimizations = calculateDownsizeOptimization(current, target);
+        if (downsizeOptimizations && downsizeOptimizations.length > 0) {
+            optimizations.push(...downsizeOptimizations);
+            console.log(`📉 ${downsizeOptimizations.length} Downsizing-Optimierungen gefunden`);
+        }
+
+        // Bei Downsizing: Keine weiteren Strategien nötig, return early
+        return optimizations.slice(0, 5);
+    }
+
+    // NORMALE LOGIK: Material hinzufügen (nur wenn current.amount <= target.quantity)
     // Strategie 1: Maximaler Wasser-Zusatz ohne weitere Rohstoffe
     const waterOnlyOptimization = calculateMaxWaterAddition(current, target);
     if (waterOnlyOptimization) {
@@ -669,19 +683,36 @@ function displayOptimizations(optimizations) {
     container.innerHTML = '';
     
     optimizations.forEach((optimization, index) => {
-        const badge = optimization.type === 'water-only' ? 'optimal' : 'water-plus';
-        const badgeText = optimization.type === 'water-only' ? 'Optimal' : 'Wasser+Rohstoff';
-        
+        // Badge und Text basierend auf Optimierungstyp
+        let badge, badgeText, materialsText = '';
+
+        if (optimization.type === 'downsize-substitution') {
+            badge = 'downsize';
+            badgeText = 'Downsizing';
+            materialsText = `
+                <div class="material-addition reduction">- ${optimization.removeAmount.toFixed(1)}kg ${optimization.materialToRemove}</div>
+                <div class="material-addition addition">+ ${optimization.waterToAdd.toFixed(1)}kg Eis/Wasser</div>
+            `;
+        } else if (optimization.type === 'downsize-combined') {
+            badge = 'downsize';
+            badgeText = 'Kombinierte Reduzierung';
+            materialsText = optimization.reductions.map(r =>
+                `<div class="material-addition reduction">- ${r.reduceAmount.toFixed(1)}kg ${r.material.name}</div>`
+            ).join('') + `<div class="material-addition addition">+ ${optimization.waterToAdd.toFixed(1)}kg Eis/Wasser</div>`;
+        } else {
+            badge = optimization.type === 'water-only' ? 'optimal' : 'water-plus';
+            badgeText = optimization.type === 'water-only' ? 'Optimal' : 'Wasser+Rohstoff';
+
+            if (optimization.additionalMaterials && optimization.additionalMaterials.length > 0) {
+                materialsText = optimization.additionalMaterials.map(m =>
+                    `<div class="material-addition">${m.amount >= 0 ? '+' : ''} ${formatAmountDescription(m.amount, m.material.name)}</div>`
+                ).join('');
+            }
+        }
+
         const card = document.createElement('div');
         card.className = 'suggestion-card optimization-card';
         card.onclick = () => selectOptimization(index);
-        
-        let materialsText = '';
-        if (optimization.additionalMaterials.length > 0) {
-            materialsText = optimization.additionalMaterials.map(m => 
-                `<div class="material-addition">${m.amount >= 0 ? '+' : ''} ${formatAmountDescription(m.amount, m.material.name)}</div>`
-            ).join('');
-        }
         
         card.innerHTML = `
             <div class="suggestion-header">
@@ -1971,6 +2002,244 @@ function exportToPDF() {
 }
 
 console.log('🥩 Rohstoff-Beratungs-App geladen');
+
+// ===== DOWNSIZING OPTIMIERUNG =====
+
+// Haupt-Funktion für Downsizing-Optimierung
+function calculateDownsizeOptimization(current, target) {
+    console.log('📉 Starte Downsizing-Optimierung...');
+    console.log(`📉 Reduzierung von ${current.amount}kg auf ${target.quantity}kg erforderlich`);
+
+    const reductionNeeded = current.amount - target.quantity;
+    console.log(`📉 Zu entfernende Menge: ${reductionNeeded.toFixed(1)}kg`);
+
+    // Finde teure Rohstoffe die ersetzt werden können
+    const expensiveMaterials = findExpensiveMaterialsToReplace(current);
+    console.log('📉 Teure Rohstoffe identifiziert:', expensiveMaterials);
+
+    const optimizations = [];
+
+    // Strategie 1: Komplette Entfernung teuerster Rohstoffe
+    for (const material of expensiveMaterials) {
+        const optimization = calculateWaterSubstitution(current, target, material, reductionNeeded);
+        if (optimization) {
+            optimizations.push(optimization);
+        }
+    }
+
+    // Strategie 2: Partielle Reduzierung mehrerer teurer Rohstoffe
+    const combinedOptimization = calculateCombinedReduction(current, target, expensiveMaterials, reductionNeeded);
+    if (combinedOptimization) {
+        optimizations.push(combinedOptimization);
+    }
+
+    console.log(`📉 Gefundene Downsizing-Optimierungen: ${optimizations.length}`);
+    return optimizations;
+}
+
+// Identifiziert teure Rohstoffe die durch Wasser ersetzt werden können
+function findExpensiveMaterialsToReplace(current) {
+    // Hole alle aktuellen Materialien mit ihren Mengen
+    const materials = getAllMaterials();
+
+    // Berechne Preis pro Material und sortiere nach Teuerkeit
+    const materialInfo = materials
+        .filter(mat => mat.type !== 'ice' && mat.amount > 0) // Nicht Wasser, und tatsächlich vorhanden
+        .map(mat => ({
+            type: mat.type,
+            name: mat.name,
+            amount: mat.amount,
+            price: mat.price,
+            totalCost: mat.price * mat.amount,
+            protein: mat.protein,
+            fat: mat.fat,
+            water: mat.water,
+            hydroxy: mat.hydroxy,
+            beffe: calculateBEFFEFromValues(mat.protein, mat.hydroxy)
+        }))
+        .sort((a, b) => b.price - a.price); // Teuerste zuerst
+
+    console.log('💰 Rohstoffe nach Preis sortiert:', materialInfo.map(m => `${m.name}: ${m.price}€/kg (${m.amount}kg)`));
+
+    return materialInfo;
+}
+
+// Berechnet optimale Wasser-Substitution für einen spezifischen Rohstoff
+function calculateWaterSubstitution(current, target, materialToReplace, reductionNeeded) {
+    console.log(`💧🔄 Teste Substitution von ${materialToReplace.name} (${materialToReplace.price}€/kg)`);
+
+    // Berechne maximale Entfernung ohne Leitsätze zu verletzen
+    const maxRemovableAmount = Math.min(materialToReplace.amount, reductionNeeded);
+
+    for (let removeAmount = maxRemovableAmount; removeAmount > 0; removeAmount -= 0.5) {
+        const remainingMaterialAmount = materialToReplace.amount - removeAmount;
+        const newTotalAmount = current.amount - removeAmount;
+
+        // Prüfe ob Zielgewicht erreicht wird
+        if (newTotalAmount > target.quantity) continue;
+
+        // Berechne neue Zusammensetzung nach Entfernung
+        const newMix = calculateMixtureAfterRemoval(current, materialToReplace, removeAmount, newTotalAmount);
+
+        // Optional: Füge Wasser hinzu bis Zielgewicht erreicht ist
+        const waterNeeded = target.quantity - newTotalAmount;
+        if (waterNeeded > 0) {
+            const finalMix = addWaterToMix(newMix, newTotalAmount, waterNeeded);
+
+            // Prüfe Leitsätze
+            if (checkLeitsaetze(finalMix, target)) {
+                const costSaving = materialToReplace.price * removeAmount - (rawMaterials.ice.price * waterNeeded);
+
+                console.log(`✅ Erfolgreiche Substitution: -${removeAmount}kg ${materialToReplace.name}, +${waterNeeded}kg Wasser`);
+                console.log(`💰 Kosteneinsparung: ${costSaving.toFixed(2)}€`);
+
+                return {
+                    type: 'downsize-substitution',
+                    strategy: `${materialToReplace.name} durch Wasser ersetzen (Kosteneinsparung: ${costSaving.toFixed(2)}€)`,
+                    materialToRemove: materialToReplace.name,
+                    removeAmount: removeAmount,
+                    waterToAdd: waterNeeded,
+                    finalAmount: target.quantity,
+                    totalAmount: target.quantity,
+                    mix: finalMix,
+                    finalMix: finalMix,
+                    costSaving: costSaving,
+                    totalCost: calculateNewTotalCost(current, materialToReplace, removeAmount, waterNeeded),
+                    costPerKg: calculateNewTotalCost(current, materialToReplace, removeAmount, waterNeeded) / target.quantity,
+                    additionalMaterials: [] // Für Kompatibilität mit bestehender UI
+                };
+            }
+        }
+    }
+
+    console.log(`❌ Keine gültige Substitution für ${materialToReplace.name} gefunden`);
+    return null;
+}
+
+// Berechnet kombinierte Reduzierung mehrerer Rohstoffe
+function calculateCombinedReduction(current, target, expensiveMaterials, reductionNeeded) {
+    console.log('🔄 Teste kombinierte Reduzierung mehrerer Rohstoffe...');
+
+    // Einfache Strategie: Proportionale Reduzierung der 2-3 teuersten
+    const topExpensive = expensiveMaterials.slice(0, 3);
+    const totalAmountTopExpensive = topExpensive.reduce((sum, mat) => sum + mat.amount, 0);
+
+    if (totalAmountTopExpensive < reductionNeeded) return null;
+
+    const reductions = topExpensive.map(mat => ({
+        material: mat,
+        reduceAmount: (mat.amount / totalAmountTopExpensive) * reductionNeeded
+    }));
+
+    // Prüfe ob diese Reduzierung zu gültiger Mischung führt
+    let newMix = {...current};
+    let newAmount = current.amount;
+    let totalCostSaving = 0;
+
+    for (const reduction of reductions) {
+        const removedMaterial = reduction.material;
+        const removeAmount = reduction.reduceAmount;
+
+        newMix = calculateMixtureAfterRemoval(newMix, removedMaterial, removeAmount, newAmount - removeAmount);
+        newAmount -= removeAmount;
+        totalCostSaving += removedMaterial.price * removeAmount;
+    }
+
+    // Füge Wasser hinzu bis Zielgewicht erreicht
+    const waterNeeded = target.quantity - newAmount;
+    if (waterNeeded > 0) {
+        const finalMix = addWaterToMix(newMix, newAmount, waterNeeded);
+        totalCostSaving -= rawMaterials.ice.price * waterNeeded;
+
+        if (checkLeitsaetze(finalMix, target)) {
+            console.log('✅ Erfolgreiche kombinierte Reduzierung');
+            return {
+                type: 'downsize-combined',
+                strategy: `Kombinierte Reduzierung (Kosteneinsparung: ${totalCostSaving.toFixed(2)}€)`,
+                reductions: reductions,
+                waterToAdd: waterNeeded,
+                finalAmount: target.quantity,
+                totalAmount: target.quantity,
+                mix: finalMix,
+                finalMix: finalMix,
+                costSaving: totalCostSaving,
+                totalCost: calculateCombinedNewCost(current, reductions, waterNeeded),
+                costPerKg: calculateCombinedNewCost(current, reductions, waterNeeded) / target.quantity,
+                additionalMaterials: [] // Für Kompatibilität mit bestehender UI
+            };
+        }
+    }
+
+    console.log('❌ Kombinierte Reduzierung nicht erfolgreich');
+    return null;
+}
+
+// Hilfsfunktion: Berechnet Mischung nach Entfernung eines Materials
+function calculateMixtureAfterRemoval(currentMix, materialToRemove, removeAmount, newTotalAmount) {
+    const removedProtein = materialToRemove.protein * removeAmount;
+    const removedFat = materialToRemove.fat * removeAmount;
+    const removedWater = materialToRemove.water * removeAmount;
+    const removedBEFFE = materialToRemove.beffe * removeAmount;
+
+    const newProtein = (currentMix.protein * currentMix.amount - removedProtein) / newTotalAmount;
+    const newFat = (currentMix.fat * currentMix.amount - removedFat) / newTotalAmount;
+    const newWater = (currentMix.water * currentMix.amount - removedWater) / newTotalAmount;
+    const newBEFFE = (currentMix.beffe * currentMix.amount - removedBEFFE) / newTotalAmount;
+
+    const newHydroxy = (materialToRemove.hydroxy * (currentMix.amount - removeAmount)) / newTotalAmount;
+    const bindegewebsEiweiß = newHydroxy * 8;
+
+    return {
+        protein: newProtein,
+        fat: newFat,
+        water: newWater,
+        beffe: newBEFFE,
+        amount: newTotalAmount,
+        hydroxy: newHydroxy,
+        bindegewebsEiweiß: bindegewebsEiweiß,
+        be: bindegewebsEiweiß
+    };
+}
+
+// Hilfsfunktion: Fügt Wasser zu einer Mischung hinzu
+function addWaterToMix(mix, currentAmount, waterAmount) {
+    const finalAmount = currentAmount + waterAmount;
+    const waterMaterial = rawMaterials.ice;
+
+    const protein = (mix.protein * currentAmount + waterMaterial.protein * waterAmount) / finalAmount;
+    const hydroxy = (mix.hydroxy * currentAmount + waterMaterial.hydroxy * waterAmount) / finalAmount;
+    const bindegewebsEiweiß = hydroxy * 8;
+
+    return {
+        protein: protein,
+        fat: (mix.fat * currentAmount + waterMaterial.fat * waterAmount) / finalAmount,
+        water: (mix.water * currentAmount + waterMaterial.water * waterAmount) / finalAmount,
+        beffe: (mix.beffe * currentAmount + 0 * waterAmount) / finalAmount,
+        hydroxy: hydroxy,
+        bindegewebsEiweiß: bindegewebsEiweiß,
+        be: bindegewebsEiweiß
+    };
+}
+
+// Hilfsfunktion: Berechnet neue Gesamtkosten
+function calculateNewTotalCost(current, removedMaterial, removeAmount, waterAmount) {
+    const originalCost = current.price * current.amount;
+    const removedCost = removedMaterial.price * removeAmount;
+    const addedCost = rawMaterials.ice.price * waterAmount;
+    return originalCost - removedCost + addedCost;
+}
+
+// Hilfsfunktion: Berechnet Kosten für kombinierte Reduzierung
+function calculateCombinedNewCost(current, reductions, waterAmount) {
+    let totalCost = current.price * current.amount;
+
+    for (const reduction of reductions) {
+        totalCost -= reduction.material.price * reduction.reduceAmount;
+    }
+
+    totalCost += rawMaterials.ice.price * waterAmount;
+    return totalCost;
+}
 
 // ===== SETTINGS MODAL FUNKTIONEN =====
 
