@@ -60,6 +60,9 @@
                                     <option value="s3">S III</option>
                                     <option value="s8">S VIII</option>
                                     <option value="ice">Eis/Wasser</option>
+                                    <option value="schulter">Schulter schier</option>
+                                    <option value="backen">Backen</option>
+                                    <option value="braet">Fertiges Brät (Validierung)</option>
                                     <option value="custom">Benutzerdefiniert</option>
                                 </select>
                             </div>
@@ -127,6 +130,22 @@
                             <span class="stat-label">Durchschn. BEFFE:</span>
                             <span class="stat-value" id="total-beffe">16.4%</span>
                         </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Wasser/Protein-Faktor:</span>
+                            <span class="stat-value" id="total-water-protein-ratio">3.9</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Fett/Protein-Faktor:</span>
+                            <span class="stat-value" id="total-fat-protein-ratio">0.8</span>
+                        </div>
+                        <div class="stat-item spice-info">
+                            <span class="stat-label">+ Gewürze:</span>
+                            <span class="stat-value" id="total-spice-amount">2.5 kg</span>
+                        </div>
+                        <div class="stat-item spice-info">
+                            <span class="stat-label">Gewürz-Kosten:</span>
+                            <span class="stat-value" id="total-spice-cost">37.50€</span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -149,6 +168,7 @@
                             <option value="leberwurst">Leberwurst</option>
                             <option value="bratwurst">Bratwurst</option>
                             <option value="hackfleisch">Hackfleisch</option>
+                            <option value="wiener">Wiener Würstchen</option>
                             <option value="custom">Benutzerdefiniert</option>
                         </select>
                     </div>
@@ -299,8 +319,77 @@
                             <label for="tolerance-beffe">BEFFE-Toleranz (%)</label>
                             <input type="number" id="tolerance-beffe" value="0.5" step="0.1" min="0" max="2">
                         </div>
+                        <div class="setting-item">
+                            <label for="spice-factor">Gewürz-Faktor (%)</label>
+                            <input type="number" id="spice-factor" value="2.5" step="0.1" min="0" max="10" title="Prozentsatz der Gesamtmasse für Gewürze und Zusatzstoffe">
+                        </div>
+                        <div class="setting-item">
+                            <label for="spice-cost">Gewürz-Kosten (€/kg)</label>
+                            <input type="number" id="spice-cost" value="15.0" step="0.5" min="0" max="100" title="Durchschnittliche Kosten für Gewürzmischung pro kg">
+                        </div>
+                        <div class="setting-item">
+                            <label for="advanced-spices">Erweiterte Gewürz-Eingabe</label>
+                            <input type="checkbox" id="advanced-spices" title="Aktiviert detaillierte Eingabe einzelner Gewürze">
+                            <span class="checkbox-label">Einzelne Gewürze verwalten</span>
+                        </div>
                     </div>
-                    
+
+                    <div class="advanced-spices-section" id="advanced-spices-section" style="display: none;">
+                        <h4>🌿 Erweiterte Gewürz-Verwaltung</h4>
+                        <p class="section-description">Detaillierte Eingabe einzelner Gewürze und Zusatzstoffe</p>
+                        <div class="spices-list" id="spices-list">
+                            <div class="spice-item">
+                                <label>Salz (%):</label>
+                                <input type="number" id="spice-salt" value="2.0" step="0.1" min="0" max="5">
+                                <span>Kosten: €/kg</span>
+                                <input type="number" id="spice-salt-cost" value="1.5" step="0.1" min="0" max="10">
+                            </div>
+                            <div class="spice-item">
+                                <label>Pfeffer (%):</label>
+                                <input type="number" id="spice-pepper" value="0.2" step="0.05" min="0" max="1">
+                                <span>Kosten: €/kg</span>
+                                <input type="number" id="spice-pepper-cost" value="25.0" step="1" min="0" max="100">
+                            </div>
+                            <div class="spice-item">
+                                <label>Andere Gewürze (%):</label>
+                                <input type="number" id="spice-others" value="0.3" step="0.1" min="0" max="2">
+                                <span>Kosten: €/kg</span>
+                                <input type="number" id="spice-others-cost" value="20.0" step="1" min="0" max="100">
+                            </div>
+                        </div>
+                        <div class="spices-summary">
+                            <strong>Gesamt-Gewürze: <span id="total-spice-percentage">2.5%</span></strong>
+                        </div>
+                    </div>
+
+                    <div class="calibration-section">
+                        <h4>🧪 Kalibrierung & Validierung</h4>
+                        <p class="section-description">Erweiterte Analyse-Tools für Food Scan Validierung und Rohstoff-Kalibrierung</p>
+                        <div class="calibration-buttons">
+                            <button class="calibration-btn validate" onclick="validateWithBraet()" aria-describedby="validate-help">
+                                <span class="btn-icon" aria-hidden="true">🧪</span>
+                                <div class="btn-content">
+                                    <span class="btn-text">Mit Brät validieren</span>
+                                    <span class="btn-subtitle">Faktoren gegen Food Scan prüfen</span>
+                                </div>
+                            </button>
+                            <button class="calibration-btn analyze" onclick="validateWithProcessFactors()" aria-describedby="calibrate-help">
+                                <span class="btn-icon" aria-hidden="true">🔬</span>
+                                <div class="btn-content">
+                                    <span class="btn-text">Prozess-Kalibrierung</span>
+                                    <span class="btn-subtitle">Wasserverlust & BE-Faktoren</span>
+                                </div>
+                            </button>
+                            <button class="calibration-btn auto" onclick="applyCalibration()" aria-describedby="auto-calibrate-help">
+                                <span class="btn-icon" aria-hidden="true">🔧</span>
+                                <div class="btn-content">
+                                    <span class="btn-text">Auto-Kalibrierung</span>
+                                    <span class="btn-subtitle">Rohstoffe automatisch anpassen</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="data-management">
                         <h4>📊 Daten-Management</h4>
                         <div class="data-buttons">

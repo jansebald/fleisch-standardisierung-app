@@ -1692,3 +1692,219 @@ body {
     }
 }
 
+/* Kalibrierung & Validierung Buttons */
+.calibration-section {
+    margin: 30px 0;
+    padding: 20px 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.calibration-section h4 {
+    color: #000000 !important;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.section-description {
+    color: #333333 !important;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.calibration-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.calibration-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
+    padding: 16px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    width: 100%;
+}
+
+.calibration-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.2);
+    transform: translateY(-1px);
+}
+
+.calibration-btn.validate:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.calibration-btn.analyze:hover {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.calibration-btn.auto:hover {
+    background: rgba(251, 146, 60, 0.1);
+    border-color: rgba(251, 146, 60, 0.3);
+}
+
+.calibration-btn .btn-icon {
+    font-size: 1.5em;
+    min-width: 32px;
+}
+
+.calibration-btn .btn-text {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 2px;
+    color: #000000 !important;
+}
+
+.calibration-btn .btn-subtitle {
+    font-size: 0.85rem;
+    color: #333333 !important;
+    font-weight: normal;
+}
+
+.calibration-btn .btn-content {
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 768px) {
+    .calibration-buttons {
+        gap: 10px;
+    }
+
+    .calibration-btn {
+        padding: 14px 16px;
+    }
+
+    .calibration-btn .btn-text {
+        font-size: 0.95rem;
+    }
+
+    .calibration-btn .btn-subtitle {
+        font-size: 0.8rem;
+    }
+}
+
+/* Gewürz-Info Styling */
+.stat-item.spice-info {
+    background: rgba(251, 146, 60, 0.1);
+    border-left: 3px solid #fb923c;
+    padding-left: 12px;
+}
+
+.stat-item.spice-info .stat-label {
+    color: #fb923c;
+    font-weight: 600;
+}
+
+.stat-item.spice-info .stat-value {
+    color: #fb923c;
+    font-weight: 700;
+}
+
+/* Erweiterte Gewürz-Sektion */
+.advanced-spices-section {
+    margin: 30px 0;
+    padding: 20px 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.advanced-spices-section h4 {
+    color: #fff;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+}
+
+.spices-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.spice-item {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 10px;
+    align-items: center;
+    background: rgba(255,255,255,0.05);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.spice-item label {
+    color: #fb923c;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.spice-item span {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.spice-item input {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    width: 80px;
+}
+
+.spice-item input:focus {
+    outline: none;
+    border-color: #fb923c;
+    background: rgba(251, 146, 60, 0.1);
+}
+
+.spices-summary {
+    text-align: center;
+    margin-top: 20px;
+    padding: 12px;
+    background: rgba(251, 146, 60, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    color: #fb923c;
+}
+
+.checkbox-label {
+    color: rgba(255,255,255,0.8);
+    margin-left: 8px;
+    font-size: 0.9rem;
+}
+
+.setting-item input[type="checkbox"] {
+    accent-color: #fb923c;
+    width: auto;
+    margin-right: 5px;
+}
+
+@media (max-width: 768px) {
+    .spice-item {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        text-align: center;
+    }
+
+    .spice-item input {
+        width: 100%;
+        max-width: 120px;
+        margin: 0 auto;
+    }
+}
+

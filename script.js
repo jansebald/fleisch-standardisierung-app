@@ -11,6 +11,7 @@ const productSpecs = {
     lyoner: { protein: 12.0, fat: 25.0, water: 62.0, be: 3.0, beffe: 9.0, name: "Lyoner" },
     leberwurst: { protein: 14.0, fat: 28.0, water: 57.0, be: 3.5, beffe: 10.5, name: "Leberwurst" },
     bratwurst: { protein: 16.0, fat: 22.0, water: 61.0, be: 4.0, beffe: 12.0, name: "Bratwurst" },
+    wiener: { protein: 13.0, fat: 20.0, water: 66.0, be: 3.0, beffe: 8.0, name: "Wiener Würstchen" },
     hackfleisch: { protein: 18.0, fat: 15.0, water: 66.0, be: 4.5, beffe: 13.5, name: "Hackfleisch" }
 };
 
@@ -19,6 +20,9 @@ const rawMaterials = {
     "s3": { protein: 17.2, fat: 14.5, water: 67.3, be: 1.0, hydroxy: 0.10, price: 5.50, name: "S III" },
     "s8": { protein: 2.5, fat: 88.0, water: 8.5, be: 0.2, hydroxy: 0.02, price: 3.20, name: "S VIII" },
     "ice": { protein: 0.0, fat: 0.0, water: 100.0, be: 0.0, hydroxy: 0.0, price: 0.05, name: "Eis/Wasser" },
+    "schulter": { protein: 19.21, fat: 11.77, water: 69.3, be: 1.23, hydroxy: 0.154, price: 6.20, name: "Schulter schier" },
+    "backen": { protein: 12.484, fat: 45.162, water: 42.048, be: 2.172, hydroxy: 0.272, price: 4.80, name: "Backen" },
+    "braet": { protein: 13.52, fat: 11.56, water: 71.86, be: 1.71, hydroxy: 0.214, price: 7.50, name: "Fertiges Brät (Validierung)" },
     "custom": { protein: 15.0, fat: 20.0, water: 64.0, be: 1.2, hydroxy: 0.08, price: 4.00, name: "Benutzerdefiniert" }
 };
 
@@ -34,6 +38,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Settings aus LocalStorage laden (nach Cache-Reset)
     loadSettingsFromStorage();
+
+    // Event Listener für Gewürz-Settings
+    const spiceFactorElement = document.getElementById('spice-factor');
+    const spiceCostElement = document.getElementById('spice-cost');
+    const advancedSpicesCheckbox = document.getElementById('advanced-spices');
+
+    if (spiceFactorElement) {
+        spiceFactorElement.addEventListener('input', updateTotalMixture);
+    }
+    if (spiceCostElement) {
+        spiceCostElement.addEventListener('input', updateTotalMixture);
+    }
+    if (advancedSpicesCheckbox) {
+        advancedSpicesCheckbox.addEventListener('change', toggleAdvancedSpices);
+    }
+
+    // Event Listener für erweiterte Gewürz-Eingaben
+    ['spice-salt', 'spice-pepper', 'spice-others', 'spice-salt-cost', 'spice-pepper-cost', 'spice-others-cost'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', updateAdvancedSpices);
+        }
+    });
 });
 
 // Cache löschen (aber Settings behalten)
@@ -133,6 +160,9 @@ function addMaterial() {
                         <option value="s3">S III</option>
                         <option value="s8">S VIII</option>
                         <option value="ice">Eis/Wasser</option>
+                        <option value="schulter">Schulter schier</option>
+                        <option value="backen">Backen</option>
+                        <option value="braet">Fertiges Brät (Validierung)</option>
                         <option value="custom">Benutzerdefiniert</option>
                     </select>
                 </div>
@@ -240,14 +270,54 @@ function updateTotalMixture() {
     const avgWater = totalAmount > 0 ? totalWater / totalAmount : 0;
     const avgBE = totalAmount > 0 ? totalBE / totalAmount : 0;
     const avgBEFFE = totalAmount > 0 ? totalBEFFE / totalAmount : 0;
-    
-    // Anzeige aktualisieren
-    document.getElementById('total-amount').textContent = `${totalAmount.toFixed(0)} kg`;
+
+    // Gewürz-Berechnungen
+    const spiceAmount = calculateSpiceAmount(totalAmount);
+    const spiceCost = calculateSpiceCost(spiceAmount);
+    const totalWithSpices = totalAmount + spiceAmount;
+
+    // Neue Faktoren berechnen
+    const waterProteinRatio = calculateWaterToProteinRatio(avgWater, avgProtein);
+    const fatProteinRatio = calculateFatToProteinRatio(avgFat, avgProtein);
+
+    // Anzeige aktualisieren - Gesamtgewicht inkl. Gewürze
+    document.getElementById('total-amount').textContent = `${totalWithSpices.toFixed(1)} kg`;
     document.getElementById('total-protein').textContent = `${avgProtein.toFixed(1)}%`;
     document.getElementById('total-fat').textContent = `${avgFat.toFixed(1)}%`;
     document.getElementById('total-water').textContent = `${avgWater.toFixed(1)}%`;
     document.getElementById('total-be').textContent = `${avgBE.toFixed(1)}%`;
     document.getElementById('total-beffe').textContent = `${avgBEFFE.toFixed(1)}%`;
+
+    // Neue Faktoren mit Farbkodierung
+    const waterProteinElement = document.getElementById('total-water-protein-ratio');
+    const fatProteinElement = document.getElementById('total-fat-protein-ratio');
+
+    waterProteinElement.textContent = waterProteinRatio.toFixed(1);
+    fatProteinElement.textContent = fatProteinRatio.toFixed(1);
+
+    // Gewürz-Anzeigen aktualisieren
+    const spiceAmountElement = document.getElementById('total-spice-amount');
+    const spiceCostElement = document.getElementById('total-spice-cost');
+
+    if (spiceAmountElement) {
+        spiceAmountElement.textContent = `${spiceAmount.toFixed(1)} kg`;
+    }
+    if (spiceCostElement) {
+        spiceCostElement.textContent = `${spiceCost.toFixed(2)}€`;
+    }
+
+    // Farbkodierung für Grenzwerte
+    if (waterProteinRatio <= 5.5) {
+        waterProteinElement.style.color = '#10b981'; // Grün
+    } else {
+        waterProteinElement.style.color = '#ef4444'; // Rot
+    }
+
+    if (fatProteinRatio <= 3.2) {
+        fatProteinElement.style.color = '#10b981'; // Grün
+    } else {
+        fatProteinElement.style.color = '#ef4444'; // Rot
+    }
 }
 
 // Alle Materialien als Array zurückgeben
@@ -299,7 +369,9 @@ function calculateCurrentMixture(materials) {
             beffe: 0,
             amount: 0,
             price: 0,
-            hydroxy: 0.08
+            hydroxy: 0.08,
+            waterProteinRatio: 0,
+            fatProteinRatio: 0
         };
     }
     
@@ -335,21 +407,29 @@ function calculateCurrentMixture(materials) {
             beffe: 0,
             amount: 0,
             price: 0,
-            hydroxy: 0.08
+            hydroxy: 0.08,
+            waterProteinRatio: 0,
+            fatProteinRatio: 0
         };
     }
     
+    const protein = totalProtein / totalAmount;
+    const fat = totalFat / totalAmount;
+    const water = totalWater / totalAmount;
+
     return {
         type: 'mixed',
         name: 'Gesamt-Mischung',
-        protein: totalProtein / totalAmount,
-        fat: totalFat / totalAmount,
-        water: totalWater / totalAmount,
+        protein: protein,
+        fat: fat,
+        water: water,
         be: totalBE / totalAmount,
         beffe: totalBEFFE / totalAmount,
         amount: totalAmount,
         price: totalCost / totalAmount,
-        hydroxy: weightedHydroxy / totalAmount
+        hydroxy: weightedHydroxy / totalAmount,
+        waterProteinRatio: calculateWaterToProteinRatio(water, protein),
+        fatProteinRatio: calculateFatToProteinRatio(fat, protein)
     };
 }
 
@@ -379,7 +459,9 @@ function calculateOptimization() {
         console.log('🚀 Optimierungsergebnisse:', optimizations);
         
         if (optimizations.length === 0) {
-            showError('Keine Optimierung möglich', 'Mit den aktuellen Rohstoffen ist keine gültige Optimierung möglich.');
+            // Intelligente Diagnose und Lösungsvorschläge
+            const suggestions = generateOptimizationSuggestions(current, target);
+            showError('Keine Optimierung möglich', suggestions);
             return;
         }
         
@@ -401,6 +483,116 @@ function getCurrentMaterial() {
     // Fallback für alte Code-Teile - nutze die neue Multi-Material Funktion
     const materials = getAllMaterials();
     return calculateCurrentMixture(materials);
+}
+
+// Alias für getCurrentMaterials - sollte getAllMaterials verwenden
+function getCurrentMaterials() {
+    return getAllMaterials();
+}
+
+// Gewürz-Berechnungen
+function getSpiceSettings() {
+    const spiceFactorElement = document.getElementById('spice-factor');
+    const spiceCostElement = document.getElementById('spice-cost');
+
+    return {
+        factor: spiceFactorElement ? parseFloat(spiceFactorElement.value) / 100 : 0.025, // 2.5% default
+        cost: spiceCostElement ? parseFloat(spiceCostElement.value) : 15.0 // 15€/kg default
+    };
+}
+
+function calculateSpiceAmount(baseMixture) {
+    const spiceSettings = getSpiceSettings();
+    return baseMixture * spiceSettings.factor;
+}
+
+function calculateSpiceCost(spiceAmount) {
+    const spiceSettings = getSpiceSettings();
+    return spiceAmount * spiceSettings.cost;
+}
+
+// Erweiterte Gewürz-Funktionen
+function toggleAdvancedSpices() {
+    const checkbox = document.getElementById('advanced-spices');
+    const section = document.getElementById('advanced-spices-section');
+
+    if (checkbox && section) {
+        section.style.display = checkbox.checked ? 'block' : 'none';
+
+        if (checkbox.checked) {
+            updateAdvancedSpices(); // Sofort aktualisieren
+        } else {
+            updateTotalMixture(); // Zurück zum einfachen Modus
+        }
+    }
+}
+
+function updateAdvancedSpices() {
+    const salt = parseFloat(document.getElementById('spice-salt')?.value || 0);
+    const pepper = parseFloat(document.getElementById('spice-pepper')?.value || 0);
+    const others = parseFloat(document.getElementById('spice-others')?.value || 0);
+
+    const totalPercentage = salt + pepper + others;
+
+    // Aktualisiere die Anzeige des Gesamt-Prozentsatzes
+    const totalElement = document.getElementById('total-spice-percentage');
+    if (totalElement) {
+        totalElement.textContent = `${totalPercentage.toFixed(1)}%`;
+    }
+
+    // Synchronisiere mit dem einfachen Gewürz-Faktor
+    const spiceFactorElement = document.getElementById('spice-factor');
+    if (spiceFactorElement) {
+        spiceFactorElement.value = totalPercentage.toFixed(1);
+    }
+
+    // Berechne gewichtete Durchschnittskosten
+    const saltCost = parseFloat(document.getElementById('spice-salt-cost')?.value || 0);
+    const pepperCost = parseFloat(document.getElementById('spice-pepper-cost')?.value || 0);
+    const othersCost = parseFloat(document.getElementById('spice-others-cost')?.value || 0);
+
+    let avgCost = 0;
+    if (totalPercentage > 0) {
+        avgCost = (salt * saltCost + pepper * pepperCost + others * othersCost) / totalPercentage;
+    }
+
+    // Synchronisiere mit einfachen Gewürz-Kosten
+    const spiceCostElement = document.getElementById('spice-cost');
+    if (spiceCostElement) {
+        spiceCostElement.value = avgCost.toFixed(2);
+    }
+
+    // Aktualisiere die Gesamtmischung
+    updateTotalMixture();
+}
+
+function getAdvancedSpiceSettings() {
+    const isAdvanced = document.getElementById('advanced-spices')?.checked;
+
+    if (!isAdvanced) {
+        return getSpiceSettings(); // Fallback zum einfachen Modus
+    }
+
+    const salt = parseFloat(document.getElementById('spice-salt')?.value || 0) / 100;
+    const pepper = parseFloat(document.getElementById('spice-pepper')?.value || 0) / 100;
+    const others = parseFloat(document.getElementById('spice-others')?.value || 0) / 100;
+
+    const saltCost = parseFloat(document.getElementById('spice-salt-cost')?.value || 0);
+    const pepperCost = parseFloat(document.getElementById('spice-pepper-cost')?.value || 0);
+    const othersCost = parseFloat(document.getElementById('spice-others-cost')?.value || 0);
+
+    const totalFactor = salt + pepper + others;
+    const avgCost = totalFactor > 0 ? (salt * saltCost + pepper * pepperCost + others * othersCost) / totalFactor : 0;
+
+    return {
+        factor: totalFactor,
+        cost: avgCost,
+        breakdown: {
+            salt: { factor: salt, cost: saltCost },
+            pepper: { factor: pepper, cost: pepperCost },
+            others: { factor: others, cost: othersCost }
+        }
+    };
 }
 
 // Zielspezifikationen lesen
@@ -582,6 +774,13 @@ function checkLeitsaetze(mix, target) {
         console.log(`🔍 Lyoner-Regel: Wasser/BEFFE = ${maxWaterRatio.toFixed(1)} (≤30.0): ${lyonerWaterOk ? '✅' : '❌'}`);
     }
 
+    // Wiener-spezifische Regel: BEFFE ≥ 8%
+    let wienerBeffeOk = true;
+    if (productType === 'wiener') {
+        wienerBeffeOk = mix.beffe >= 8.0;
+        console.log(`🔍 Wiener-Regel: BEFFE = ${mix.beffe.toFixed(1)}% (≥8.0%): ${wienerBeffeOk ? '✅' : '❌'}`);
+    }
+
     // BE/FE-Verhältnis prüfen: BE ≤ 25% von FE (Fleischeiweiß)
     const fleischeiweiss = mix.protein; // FE = Gesamteiweiß (vereinfacht)
     const beFeRatio = fleischeiweiss > 0 ? (mix.be / fleischeiweiss) * 100 : 0;
@@ -592,13 +791,647 @@ function checkLeitsaetze(mix, target) {
     const beTargetOk = mix.be <= target.be;
     console.log(`🔍 BE-Zielwert: ${mix.be.toFixed(1)}% ≤ ${target.be.toFixed(1)}%: ${beTargetOk ? '✅' : '❌'}`);
 
+    // Neue Faktoren prüfen: Wasser/Protein-Faktor ≤ 5,5
+    const waterProteinRatio = mix.waterProteinRatio || calculateWaterToProteinRatio(mix.water, mix.protein);
+    // Floating Point Toleranz hinzufügen für exakte Grenzwerte
+    const waterProteinOk = waterProteinRatio <= (5.5 + 0.01);
+    console.log(`🔍 Wasser/Protein-Faktor: ${waterProteinRatio.toFixed(2)} (≤5.5): ${waterProteinOk ? '✅' : '❌'}`);
+
+    // Fett/Protein-Faktor ≤ 3,2
+    const fatProteinRatio = mix.fatProteinRatio || calculateFatToProteinRatio(mix.fat, mix.protein);
+    // Floating Point Toleranz hinzufügen für exakte Grenzwerte
+    const fatProteinOk = fatProteinRatio <= (3.2 + 0.01);
+    console.log(`🔍 Fett/Protein-Faktor: ${fatProteinRatio.toFixed(2)} (≤3.2): ${fatProteinOk ? '✅' : '❌'}`);
+
     // Detaillierte Debug-Ausgaben
     console.log(`🔍 ZIEL: ${target.protein}% Eiweiß, ${target.fat}% Fett, ${target.water}% Wasser, ${target.beffe}% BEFFE`);
     console.log(`🔍 IST:  ${mix.protein.toFixed(1)}% Eiweiß, ${mix.fat.toFixed(1)}% Fett, ${mix.water.toFixed(1)}% Wasser, ${mix.beffe.toFixed(1)}% BEFFE`);
     console.log(`🔍 DIFF: ${Math.abs(mix.protein - target.protein).toFixed(1)} Eiweiß (≤${tolerance.protein}), ${Math.abs(mix.fat - target.fat).toFixed(1)} Fett (≤${tolerance.fat}), ${Math.abs(mix.water - target.water).toFixed(1)} Wasser (≤${tolerance.water}), BEFFE: ${mix.beffe.toFixed(1)} ≥ ${(target.beffe + tolerance.beffe).toFixed(1)}`);
-    console.log(`🔍 Leitsätze-Check: Protein ${proteinOk}, Fett ${fatOk}, Wasser ${waterOk}, BEFFE ${beffeOk}, Lyoner-Wasser ${lyonerWaterOk}, BE/FE ${beFeOk}, BE-Ziel ${beTargetOk}`);
+    console.log(`🔍 Leitsätze-Check: Protein ${proteinOk}, Fett ${fatOk}, Wasser ${waterOk}, BEFFE ${beffeOk}, Lyoner-Wasser ${lyonerWaterOk}, Wiener-BEFFE ${wienerBeffeOk}, BE/FE ${beFeOk}, BE-Ziel ${beTargetOk}, Wasser/Protein ${waterProteinOk}, Fett/Protein ${fatProteinOk}`);
 
-    return proteinOk && fatOk && waterOk && beffeOk && lyonerWaterOk && beFeOk && beTargetOk;
+    return proteinOk && fatOk && waterOk && beffeOk && lyonerWaterOk && wienerBeffeOk && beFeOk && beTargetOk && waterProteinOk && fatProteinOk;
+}
+
+// Intelligente Lösungsvorschläge bei gescheiterten Optimierungen
+function generateOptimizationSuggestions(current, target) {
+    console.log('🔍 Generiere Lösungsvorschläge...');
+
+    const suggestions = [];
+    const issues = [];
+
+    // Analysiere alle Constraint-Verletzungen
+    const waterProteinRatio = calculateWaterToProteinRatio(current.water, current.protein);
+    const fatProteinRatio = calculateFatToProteinRatio(current.fat, current.protein);
+
+    // 1. Wasser/Protein-Faktor Probleme
+    if (waterProteinRatio > 5.5) {
+        issues.push('Wasser/Protein-Verhältnis zu hoch');
+        suggestions.push(`💧➡️🥩 WASSER/PROTEIN zu hoch (${waterProteinRatio.toFixed(2)} > 5.5):`);
+        suggestions.push('• Mehr proteinreiche Rohstoffe hinzufügen (Schulter schier: 19.2% Protein)');
+        suggestions.push('• Weniger Eis/Wasser verwenden');
+        suggestions.push('• Mageres Fleisch (S III) erhöhen');
+    }
+
+    // 2. Fett/Protein-Faktor Probleme
+    if (fatProteinRatio > 3.2) {
+        issues.push('Fett/Protein-Verhältnis zu hoch');
+        suggestions.push(`🥓➡️🥩 FETT/PROTEIN zu hoch (${fatProteinRatio.toFixed(2)} > 3.2):`);
+        suggestions.push('• Weniger fettreiche Rohstoffe (Backen hat bereits 3.61!)');
+        suggestions.push('• Mehr Protein hinzufügen (Schulter schier oder S III)');
+        suggestions.push('• Fettanteil reduzieren');
+    }
+
+    // 3. Zielwert-Differenzen analysieren
+    const proteinDiff = current.protein - target.protein;
+    const fatDiff = current.fat - target.fat;
+    const waterDiff = current.water - target.water;
+
+    if (Math.abs(fatDiff) > 5) {
+        if (fatDiff < -5) {
+            suggestions.push('🥓 FETT zu niedrig:');
+            suggestions.push('• Mehr S VIII hinzufügen (88% Fett)');
+            suggestions.push('• Backen erhöhen (45.2% Fett) - Achtung: Fett/Protein-Grenzwert beachten!');
+        } else {
+            suggestions.push('🥓 FETT zu hoch:');
+            suggestions.push('• Weniger fettreiche Rohstoffe verwenden');
+            suggestions.push('• Mehr magere Rohstoffe (S III, Schulter schier)');
+        }
+    }
+
+    if (Math.abs(waterDiff) > 3) {
+        if (waterDiff > 3) {
+            suggestions.push('💧 WASSER zu hoch:');
+            suggestions.push('• Weniger Eis/Wasser hinzufügen');
+            suggestions.push('• Mehr feste Rohstoffe verwenden');
+        } else {
+            suggestions.push('💧 WASSER zu niedrig:');
+            suggestions.push('• Mehr Eis/Wasser hinzufügen');
+            suggestions.push('• Wasserreiche Rohstoffe bevorzugen');
+        }
+    }
+
+    // 4. Brät-Benchmark Integration
+    const braetValues = rawMaterials.braet;
+    const braetWaterProtein = calculateWaterToProteinRatio(braetValues.water, braetValues.protein);
+    const braetFatProtein = calculateFatToProteinRatio(braetValues.fat, braetValues.protein);
+
+    suggestions.push('<br><strong>🧪 BENCHMARK (Fertiges Brät):</strong>');
+    suggestions.push(`• Erfolgreiche Faktoren: W/P ${braetWaterProtein.toFixed(2)}, F/P ${braetFatProtein.toFixed(2)}`);
+    suggestions.push(`• Angestrebt: ${braetValues.protein}% Protein, ${braetValues.fat}% Fett, ${braetValues.water}% Wasser`);
+    suggestions.push('• Orientierung an bewährter Rezeptur empfohlen');
+
+    // 5. Spezifische Rohstoff-Empfehlungen
+    if (suggestions.length === 0) {
+        suggestions.push('🔍 ALLGEMEINE EMPFEHLUNGEN:');
+        suggestions.push('• Rohstoff-Mengenverhältnisse anpassen');
+        suggestions.push('• Toleranzen in den Leitsätzen prüfen');
+        suggestions.push('• Alternative Rohstoff-Kombinationen testen');
+    }
+
+    // Füge Constraint-Details hinzu
+    const constraintAnalysis = analyzeConstraintViolations(current, target);
+    if (constraintAnalysis.length > 0) {
+        suggestions.push('<br><strong>🔍 DETAILANALYSE:</strong>');
+        suggestions.push(...constraintAnalysis);
+    }
+
+    // Rückgabe als HTML-formatierter String
+    return suggestions.join('<br>');
+}
+
+// Detaillierte Constraint-Analyse
+function analyzeConstraintViolations(current, target) {
+    const analysis = [];
+    const waterProteinRatio = calculateWaterToProteinRatio(current.water, current.protein);
+    const fatProteinRatio = calculateFatToProteinRatio(current.fat, current.protein);
+
+    // Aktuelle Werte vs. Grenzwerte
+    analysis.push(`• Wasser/Protein: ${waterProteinRatio.toFixed(2)} (Grenzwert: ≤5.5) ${waterProteinRatio <= 5.5 ? '✅' : '❌'}`);
+    analysis.push(`• Fett/Protein: ${fatProteinRatio.toFixed(2)} (Grenzwert: ≤3.2) ${fatProteinRatio <= 3.2 ? '✅' : '❌'}`);
+
+    // Zielwert-Differenzen
+    const proteinDiff = current.protein - target.protein;
+    const fatDiff = current.fat - target.fat;
+    const waterDiff = current.water - target.water;
+
+    analysis.push(`• Protein-Differenz: ${proteinDiff.toFixed(1)}% (Ist ${current.protein.toFixed(1)}% vs. Ziel ${target.protein}%)`);
+    analysis.push(`• Fett-Differenz: ${fatDiff.toFixed(1)}% (Ist ${current.fat.toFixed(1)}% vs. Ziel ${target.fat}%)`);
+    analysis.push(`• Wasser-Differenz: ${waterDiff.toFixed(1)}% (Ist ${current.water.toFixed(1)}% vs. Ziel ${target.water}%)`);
+
+    return analysis;
+}
+
+// Brät-Validierung: Teste mit realen Food Scan Werten
+function validateWithBraet() {
+    console.log('🧪 Starte Brät-Validierung...');
+
+    try {
+        hideError();
+
+        // Hole Brät-Werte aus rawMaterials
+        const braetValues = rawMaterials.braet;
+
+        // Berechne Faktoren für fertiges Brät
+        const waterProteinRatio = calculateWaterToProteinRatio(braetValues.water, braetValues.protein);
+        const fatProteinRatio = calculateFatToProteinRatio(braetValues.fat, braetValues.protein);
+
+        // Erstelle Validierungsbericht
+        let validationReport = [];
+
+        validationReport.push('<strong>🧪 BRÄT-VALIDIERUNG</strong>');
+        validationReport.push('<br><strong>Food Scan Werte:</strong>');
+        validationReport.push(`• Eiweiß: ${braetValues.protein}%`);
+        validationReport.push(`• Fett: ${braetValues.fat}%`);
+        validationReport.push(`• Wasser: ${braetValues.water}%`);
+        validationReport.push(`• BE: ${braetValues.be}%`);
+        validationReport.push(`• BEFFE: ${braetValues.beffe || (braetValues.protein - braetValues.be).toFixed(2)}%`);
+
+        validationReport.push('<br><strong>🔍 FAKTOREN-PRÜFUNG:</strong>');
+        validationReport.push(`• Wasser/Protein: ${waterProteinRatio.toFixed(2)} ${waterProteinRatio <= 5.5 ? '✅' : '❌'} (Grenzwert: ≤5.5)`);
+        validationReport.push(`• Fett/Protein: ${fatProteinRatio.toFixed(2)} ${fatProteinRatio <= 3.2 ? '✅' : '❌'} (Grenzwert: ≤3.2)`);
+
+        // Vergleich mit aktueller Mischung
+        const currentMaterials = getAllMaterials();
+        if (currentMaterials.length > 0) {
+            const currentMix = calculateCurrentMixture(currentMaterials);
+            const currentWaterProtein = calculateWaterToProteinRatio(currentMix.water, currentMix.protein);
+            const currentFatProtein = calculateFatToProteinRatio(currentMix.fat, currentMix.protein);
+
+            validationReport.push('<br><strong>⚖️ VERGLEICH MIT AKTUELLER MISCHUNG:</strong>');
+            validationReport.push(`• Wasser/Protein: Brät ${waterProteinRatio.toFixed(2)} vs. Aktuell ${currentWaterProtein.toFixed(2)}`);
+            validationReport.push(`• Fett/Protein: Brät ${fatProteinRatio.toFixed(2)} vs. Aktuell ${currentFatProtein.toFixed(2)}`);
+
+            if (waterProteinRatio <= 5.5 && fatProteinRatio <= 3.2) {
+                validationReport.push('<br><strong>✅ ERFOLG:</strong> Das Brät erfüllt alle neuen Grenzwerte!');
+                validationReport.push('Die implementierten Faktoren sind korrekt kalibriert.');
+            } else {
+                validationReport.push('<br><strong>⚠️ ACHTUNG:</strong> Das Brät überschreitet Grenzwerte!');
+                validationReport.push('Möglicherweise müssen die Grenzwerte angepasst werden.');
+            }
+        }
+
+        // Empfehlungen für Optimierung
+        validationReport.push('<br><strong>💡 EMPFEHLUNGEN:</strong>');
+        if (waterProteinRatio <= 5.5 && fatProteinRatio <= 3.2) {
+            validationReport.push('• Die Brät-Zusammensetzung kann als Benchmark verwendet werden');
+            validationReport.push('• Optimierungen sollten ähnliche Faktoren-Verhältnisse anstreben');
+            validationReport.push('• Bei Abweichungen: Mehr proteinreiche Rohstoffe verwenden');
+        } else {
+            validationReport.push('• Prüfung der Grenzwerte erforderlich');
+            validationReport.push('• Möglicherweise sind die Toleranzen zu streng');
+        }
+
+        // Zeige Validierungsbericht in der Ergebnissektion
+        const suggestionsSection = document.getElementById('suggestions-section');
+        suggestionsSection.style.display = 'block';
+
+        const container = document.getElementById('suggestions-container');
+        container.innerHTML = `
+            <div class="suggestion-card validation-result">
+                <div class="suggestion-header">
+                    <span class="suggestion-icon">🧪</span>
+                    <div class="suggestion-title">Brät-Validierung</div>
+                    <div class="suggestion-meta">Food Scan Verifikation</div>
+                </div>
+                <div class="suggestion-details">
+                    ${validationReport.join('<br>')}
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Fehler bei Brät-Validierung:', error);
+        showError('Validierungsfehler', 'Fehler bei der Brät-Validierung: ' + error.message);
+    }
+}
+
+// Erweiterte Abweichungsanalyse zwischen berechneten und gemessenen Werten
+function analyzeDeviations(theoretical, measured, label = 'Vergleich', includeExtendedAnalysis = false) {
+    const deviations = [];
+
+    // Grundlegende Abweichungen
+    const proteinDev = Math.abs(theoretical.protein - measured.protein);
+    const fatDev = Math.abs(theoretical.fat - measured.fat);
+    const waterDev = Math.abs(theoretical.water - measured.water);
+    const beDev = Math.abs((theoretical.be || 0) - (measured.be || 0));
+    const beffeDev = Math.abs((theoretical.beffe || 0) - (measured.beffe || 0));
+
+    deviations.push(`<strong>📊 ABWEICHUNGSANALYSE (${label}):</strong>`);
+
+    // Detaillierte Toleranzbereiche
+    const tolerances = {
+        protein: { excellent: 0.5, good: 1.0, acceptable: 2.0 },
+        fat: { excellent: 1.0, good: 2.0, acceptable: 4.0 },
+        water: { excellent: 1.5, good: 3.0, acceptable: 5.0 },
+        be: { excellent: 0.3, good: 0.7, acceptable: 1.2 },
+        beffe: { excellent: 0.5, good: 1.0, acceptable: 2.0 }
+    };
+
+    function getStatusIcon(deviation, tolerance) {
+        if (deviation <= tolerance.excellent) return '🎯';
+        if (deviation <= tolerance.good) return '✅';
+        if (deviation <= tolerance.acceptable) return '⚠️';
+        return '❌';
+    }
+
+    function getStatusText(deviation, tolerance) {
+        if (deviation <= tolerance.excellent) return 'Exzellent';
+        if (deviation <= tolerance.good) return 'Sehr gut';
+        if (deviation <= tolerance.acceptable) return 'Akzeptabel';
+        return 'Kritisch';
+    }
+
+    // Detaillierte Bewertung aller Parameter
+    deviations.push(`• Protein: ${proteinDev.toFixed(2)}% ${getStatusIcon(proteinDev, tolerances.protein)} ${getStatusText(proteinDev, tolerances.protein)}`);
+    deviations.push(`• Fett: ${fatDev.toFixed(2)}% ${getStatusIcon(fatDev, tolerances.fat)} ${getStatusText(fatDev, tolerances.fat)}`);
+    deviations.push(`• Wasser: ${waterDev.toFixed(2)}% ${getStatusIcon(waterDev, tolerances.water)} ${getStatusText(waterDev, tolerances.water)}`);
+
+    if (theoretical.be !== undefined && measured.be !== undefined) {
+        deviations.push(`• BE: ${beDev.toFixed(2)}% ${getStatusIcon(beDev, tolerances.be)} ${getStatusText(beDev, tolerances.be)}`);
+    }
+
+    if (theoretical.beffe !== undefined && measured.beffe !== undefined) {
+        deviations.push(`• BEFFE: ${beffeDev.toFixed(2)}% ${getStatusIcon(beffeDev, tolerances.beffe)} ${getStatusText(beffeDev, tolerances.beffe)}`);
+    }
+
+    // Gesamtbewertung
+    const avgDeviation = (proteinDev + fatDev + waterDev) / 3;
+    deviations.push(`• Durchschnitt: ${avgDeviation.toFixed(2)}% ${avgDeviation <= 1.0 ? '🎯 Exzellent' : avgDeviation <= 2.0 ? '✅ Sehr gut' : avgDeviation <= 4.0 ? '⚠️ Akzeptabel' : '❌ Kritisch'}`);
+
+    // Erweiterte statistische Analyse
+    if (includeExtendedAnalysis) {
+        deviations.push('<br><strong>📈 STATISTISCHE ANALYSE:</strong>');
+
+        // Standardabweichung berechnen
+        const values = [proteinDev, fatDev, waterDev];
+        const variance = values.reduce((sum, val) => sum + Math.pow(val - avgDeviation, 2), 0) / values.length;
+        const stdDev = Math.sqrt(variance);
+
+        deviations.push(`• Standardabweichung: ${stdDev.toFixed(2)}%`);
+        deviations.push(`• Konsistenz: ${stdDev <= 1.0 ? '🎯 Sehr konsistent' : stdDev <= 2.0 ? '✅ Konsistent' : '⚠️ Schwankend'}`);
+
+        // Trends identifizieren
+        const proteinTrend = theoretical.protein - measured.protein;
+        const fatTrend = theoretical.fat - measured.fat;
+        const waterTrend = theoretical.water - measured.water;
+
+        deviations.push('<br><strong>📉 TREND-ANALYSE:</strong>');
+        deviations.push(`• Protein: ${proteinTrend > 0 ? '+' : ''}${proteinTrend.toFixed(2)}% ${proteinTrend > 0.5 ? '(Überschätzung)' : proteinTrend < -0.5 ? '(Unterschätzung)' : '(Ausgeglichen)'}`);
+        deviations.push(`• Fett: ${fatTrend > 0 ? '+' : ''}${fatTrend.toFixed(2)}% ${fatTrend > 1.0 ? '(Überschätzung)' : fatTrend < -1.0 ? '(Unterschätzung)' : '(Ausgeglichen)'}`);
+        deviations.push(`• Wasser: ${waterTrend > 0 ? '+' : ''}${waterTrend.toFixed(2)}% ${waterTrend > 2.0 ? '(Überschätzung)' : waterTrend < -2.0 ? '(Unterschätzung)' : '(Ausgeglichen)'}`);
+    }
+
+    // Gesamtbewertung und Empfehlungen
+    if (avgDeviation <= 1.0) {
+        deviations.push('<br><strong>🎯 BEWERTUNG:</strong> Exzellente Übereinstimmung - Modell ist sehr präzise');
+        deviations.push('<strong>💡 EMPFEHLUNG:</strong> Keine Anpassungen nötig, weiter so!');
+    } else if (avgDeviation <= 2.0) {
+        deviations.push('<br><strong>✅ BEWERTUNG:</strong> Sehr gute Übereinstimmung - Modell funktioniert gut');
+        deviations.push('<strong>💡 EMPFEHLUNG:</strong> Kleine Optimierungen bei auffälligen Parametern');
+    } else if (avgDeviation <= 4.0) {
+        deviations.push('<br><strong>⚠️ BEWERTUNG:</strong> Akzeptable Abweichung - Optimierung empfehlenswert');
+        deviations.push('<strong>💡 EMPFEHLUNG:</strong> Prozessfaktoren anpassen, Rohstoff-Kalibrierung prüfen');
+    } else {
+        deviations.push('<br><strong>❌ BEWERTUNG:</strong> Hohe Abweichung - Dringende Überprüfung erforderlich');
+        deviations.push('<strong>💡 EMPFEHLUNG:</strong> Grundlegende Modell-Revision, Rohstoff-Neubewertung, Prozessanalyse');
+    }
+
+    return deviations;
+}
+
+// Intelligente Rohstoff-Kalibrierung basierend auf Food Scan Abweichungen
+function calibrateRawMaterials(measuredBraet, calculatedBraet, currentMaterials) {
+    console.log('🔧 Starte Rohstoff-Kalibrierung...');
+
+    const calibrationReport = [];
+    calibrationReport.push('<strong>🔧 ROHSTOFF-KALIBRIERUNG:</strong>');
+
+    // Abweichungen berechnen
+    const waterDeviation = measuredBraet.water - calculatedBraet.water; // -2.54%
+    const beDeviation = measuredBraet.be - calculatedBraet.be; // +0.71%
+    const proteinDeviation = measuredBraet.protein - calculatedBraet.protein; // -0.18%
+    const fatDeviation = measuredBraet.fat - calculatedBraet.fat; // -0.54%
+
+    calibrationReport.push(`<br><strong>📋 GEMESSENE ABWEICHUNGEN:</strong>`);
+    calibrationReport.push(`• Wasser: ${waterDeviation.toFixed(2)}% (Verlust durch Verarbeitung)`);
+    calibrationReport.push(`• BE: +${beDeviation.toFixed(2)}% (Bindegewebe unterschätzt)`);
+    calibrationReport.push(`• Protein: ${proteinDeviation.toFixed(2)}% (Leichte Abweichung)`);
+    calibrationReport.push(`• Fett: ${fatDeviation.toFixed(2)}% (Leichte Abweichung)`);
+
+    // Korrekturvorschläge für Rohstoffe generieren
+    calibrationReport.push(`<br><strong>💡 KORREKTURVORSCHLÄGE:</strong>`);
+
+    // 1. Wasserverlust-Faktor
+    const processWaterLoss = Math.abs(waterDeviation);
+    calibrationReport.push(`• Wasserverlust-Faktor: ${processWaterLoss.toFixed(1)}% für Verarbeitungsprozess`);
+
+    // 2. BE-Werte Anpassung
+    const beAdjustmentFactor = 1 + (beDeviation / calculatedBraet.be);
+    calibrationReport.push(`• BE-Werte um Faktor ${beAdjustmentFactor.toFixed(3)} erhöhen`);
+
+    // 3. Spezifische Rohstoff-Korrekturen
+    calibrationReport.push(`<br><strong>🔬 EMPFOHLENE ROHSTOFF-ANPASSUNGEN:</strong>`);
+
+    // Analyisiere verwendete Rohstoffe
+    const usedMaterials = currentMaterials.filter(mat => mat.amount > 0);
+    for (const material of usedMaterials) {
+        const materialData = rawMaterials[material.type];
+        if (!materialData) continue;
+
+        const correctedBE = materialData.be * beAdjustmentFactor;
+        const weightPercent = (material.amount / calculatedBraet.amount) * 100;
+
+        calibrationReport.push(`• ${materialData.name} (${weightPercent.toFixed(1)}%):`);
+        calibrationReport.push(`  - Aktueller BE: ${materialData.be.toFixed(2)}%`);
+        calibrationReport.push(`  - Korrigierter BE: ${correctedBE.toFixed(2)}%`);
+        calibrationReport.push(`  - Anpassung: +${((correctedBE - materialData.be)).toFixed(2)}%`);
+    }
+
+    // 4. Prozessoptimierung
+    calibrationReport.push(`<br><strong>⚙️ PROZESSOPTIMIERUNG:</strong>`);
+    calibrationReport.push(`• Wasserverlust durch Kutter/Mischen: ~${processWaterLoss.toFixed(1)}%`);
+    calibrationReport.push(`• Bindegewebe-Messung überprüfen (Food Scan vs. Labor)`);
+    calibrationReport.push(`• Rohstoff-Chargen-Schwankungen berücksichtigen`);
+
+    // 5. Empfohlene Toleranzen
+    calibrationReport.push(`<br><strong>📏 EMPFOHLENE TOLERANZEN:</strong>`);
+    calibrationReport.push(`• Wasser: ±${(processWaterLoss + 1).toFixed(1)}% (inkl. Prozessverlust)`);
+    calibrationReport.push(`• BE: ±${(Math.abs(beDeviation) + 0.3).toFixed(1)}% (Messtoleranzen)`);
+    calibrationReport.push(`• Protein/Fett: ±1.0% (bestehende Toleranz ausreichend)`);
+
+    return calibrationReport;
+}
+
+// Prozessverlust-Faktoren implementieren
+function applyProcessingFactors(theoreticalMix, processType = 'standard') {
+    console.log('⚙️ Wende Prozessfaktoren an...');
+
+    const factors = {
+        standard: {
+            waterLoss: 0.025,    // 2.5% Wasserverlust
+            beFactor: 1.07,      // 7% höhere BE-Werte
+            proteinLoss: 0.002,  // 0.2% Proteinverlust
+            fatLoss: 0.005       // 0.5% Fettverlust
+        },
+        intensive: {
+            waterLoss: 0.035,    // 3.5% Wasserverlust bei intensivem Kuttern
+            beFactor: 1.10,      // 10% höhere BE-Werte
+            proteinLoss: 0.003,  // 0.3% Proteinverlust
+            fatLoss: 0.008       // 0.8% Fettverlust
+        }
+    };
+
+    const factor = factors[processType] || factors.standard;
+
+    // Angepasste Werte berechnen
+    const adjustedMix = {
+        protein: theoreticalMix.protein * (1 - factor.proteinLoss),
+        fat: theoreticalMix.fat * (1 - factor.fatLoss),
+        water: theoreticalMix.water * (1 - factor.waterLoss),
+        be: theoreticalMix.be * factor.beFactor,
+        amount: theoreticalMix.amount
+    };
+
+    // BEFFE neu berechnen
+    adjustedMix.beffe = adjustedMix.protein - adjustedMix.be;
+
+    // Faktoren hinzufügen für Transparenz
+    adjustedMix.waterProteinRatio = calculateWaterToProteinRatio(adjustedMix.water, adjustedMix.protein);
+    adjustedMix.fatProteinRatio = calculateFatToProteinRatio(adjustedMix.fat, adjustedMix.protein);
+
+    console.log(`⚙️ Prozessanpassung (${processType}):`, adjustedMix);
+    return adjustedMix;
+}
+
+// Erweiterte Validierung mit Prozessfaktoren
+function validateWithProcessFactors() {
+    try {
+        console.log('🧪⚙️ Starte erweiterte Validierung mit Prozessfaktoren...');
+
+        // Aktuelle Berechnung
+        const currentMaterials = getCurrentMaterials();
+        const theoretical = calculateCurrentMixture(currentMaterials);
+
+        // Mit Prozessfaktoren angepasst
+        const withStandardProcess = applyProcessingFactors(theoretical, 'standard');
+        const withIntensiveProcess = applyProcessingFactors(theoretical, 'intensive');
+
+        // Food Scan Referenz
+        const braetReference = {
+            protein: 13.52,
+            fat: 11.56,
+            water: 71.86,
+            be: 1.71,
+            beffe: 11.81
+        };
+
+        // Vergleiche alle Varianten
+        const comparisons = [];
+
+        // Standard Abweichung mit erweiterter Analyse
+        const standardDev = analyzeDeviations(theoretical, braetReference, 'Ohne Prozessfaktoren', true);
+        comparisons.push(...standardDev);
+
+        // Mit Standard-Prozessfaktoren
+        const standardProcessDev = analyzeDeviations(withStandardProcess, braetReference, 'Standard-Verarbeitung', false);
+        comparisons.push('<br>');
+        comparisons.push(...standardProcessDev);
+
+        // Mit intensiven Prozessfaktoren
+        const intensiveProcessDev = analyzeDeviations(withIntensiveProcess, braetReference, 'Intensive Verarbeitung', false);
+        comparisons.push('<br>');
+        comparisons.push(...intensiveProcessDev);
+
+        // Kalibrierungsvorschläge
+        const calibration = calibrateRawMaterials(braetReference, theoretical, currentMaterials);
+        comparisons.push('<br>');
+        comparisons.push(...calibration);
+
+        // Ergebnisse anzeigen
+        const suggestionsSection = document.getElementById('suggestions-section');
+        suggestionsSection.style.display = 'block';
+
+        const container = document.getElementById('suggestions-container');
+        container.innerHTML = `
+            <div class="suggestion-card validation-result">
+                <div class="suggestion-header">
+                    <span class="suggestion-icon">🔬</span>
+                    <div class="suggestion-title">Erweiterte Prozess-Validierung</div>
+                    <div class="suggestion-meta">Mit Kalibrierung & Prozessfaktoren</div>
+                </div>
+                <div class="suggestion-details">
+                    ${comparisons.join('<br>')}
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Fehler bei erweiterter Validierung:', error);
+        showError('Validierungsfehler', 'Fehler bei der erweiterten Validierung: ' + error.message);
+    }
+}
+
+// Automatische Rohstoff-Kalibrierung anwenden
+function applyCalibration() {
+    try {
+        console.log('🔧⚙️ Wende automatische Kalibrierung an...');
+
+        // Aktuelle Berechnung
+        const currentMaterials = getCurrentMaterials();
+        const theoretical = calculateCurrentMixture(currentMaterials);
+
+        // Food Scan Referenz
+        const braetReference = {
+            protein: 13.52,
+            fat: 11.56,
+            water: 71.86,
+            be: 1.71,
+            beffe: 11.81
+        };
+
+        // Kalibrierungsfaktoren berechnen
+        const waterDeviation = braetReference.water - theoretical.water; // -2.54%
+        const beDeviation = braetReference.be - theoretical.be; // +0.71%
+        const beAdjustmentFactor = 1 + (beDeviation / theoretical.be);
+
+        console.log(`🔧 Kalibrierungsfaktoren: Wasser ${waterDeviation.toFixed(2)}%, BE-Faktor ${beAdjustmentFactor.toFixed(3)}`);
+
+        // Bestätigung vom Benutzer
+        const confirmMessage = `
+AUTOMATISCHE KALIBRIERUNG
+
+Möchten Sie die folgenden Anpassungen vornehmen?
+
+• Wasserverlust-Faktor: ${Math.abs(waterDeviation).toFixed(1)}%
+• BE-Werte Anpassung: +${((beAdjustmentFactor - 1) * 100).toFixed(1)}%
+
+Dies wird die Rohstoff-Werte dauerhaft anpassen.
+        `;
+
+        if (!confirm(confirmMessage)) {
+            console.log('🚫 Kalibrierung abgebrochen');
+            return;
+        }
+
+        // Backup der originalen Werte
+        const originalRawMaterials = JSON.parse(JSON.stringify(rawMaterials));
+
+        // Angepasste Rohstoff-Werte berechnen
+        const calibratedMaterials = {};
+        for (const [key, material] of Object.entries(rawMaterials)) {
+            if (key === 'ice' || key === 'custom' || key === 'braet') {
+                calibratedMaterials[key] = material; // Diese nicht ändern
+                continue;
+            }
+
+            calibratedMaterials[key] = {
+                ...material,
+                be: material.be * beAdjustmentFactor,
+                // Wasser leicht reduzieren für Prozessverlust
+                water: material.water * (1 - Math.abs(waterDeviation) / 100)
+            };
+
+            console.log(`🔧 ${material.name}: BE ${material.be.toFixed(2)} → ${calibratedMaterials[key].be.toFixed(2)}, Wasser ${material.water.toFixed(1)} → ${calibratedMaterials[key].water.toFixed(1)}`);
+        }
+
+        // Temporär anwenden für Test
+        Object.assign(rawMaterials, calibratedMaterials);
+
+        // Neue Berechnung testen
+        const testCalculation = calculateCurrentMixture(currentMaterials);
+        const testDeviation = analyzeDeviations(testCalculation, braetReference, 'Nach Kalibrierung', false);
+
+        // Ergebnis anzeigen
+        const calibrationReport = [];
+        calibrationReport.push('<strong>🔧 KALIBRIERUNG ANGEWENDET:</strong>');
+        calibrationReport.push('<br><strong>📊 NEUE ABWEICHUNGSANALYSE:</strong>');
+        calibrationReport.push(...testDeviation);
+
+        calibrationReport.push('<br><strong>⚙️ ANGEWENDETE KORREKTUREN:</strong>');
+        for (const [key, material] of Object.entries(calibratedMaterials)) {
+            const original = originalRawMaterials[key];
+            if (!original || key === 'ice' || key === 'custom' || key === 'braet') continue;
+
+            const beChange = material.be - original.be;
+            const waterChange = material.water - original.water;
+
+            if (Math.abs(beChange) > 0.01 || Math.abs(waterChange) > 0.01) {
+                calibrationReport.push(`• ${material.name}:`);
+                if (Math.abs(beChange) > 0.01) {
+                    calibrationReport.push(`  - BE: ${original.be.toFixed(2)} → ${material.be.toFixed(2)} (+${beChange.toFixed(2)})`);
+                }
+                if (Math.abs(waterChange) > 0.01) {
+                    calibrationReport.push(`  - Wasser: ${original.water.toFixed(1)} → ${material.water.toFixed(1)} (${waterChange.toFixed(1)})`);
+                }
+            }
+        }
+
+        calibrationReport.push('<br><strong>💾 SPEICHERUNG:</strong>');
+        calibrationReport.push('• Änderungen wurden temporär angewendet');
+        calibrationReport.push('• Aktualisieren Sie die Berechnung für endgültige Werte');
+        calibrationReport.push('• Bei Neustart werden ursprüngliche Werte wiederhergestellt');
+
+        // Manuell aktualisieren
+        updateTotalMixture();
+
+        // Ergebnisse anzeigen
+        const suggestionsSection = document.getElementById('suggestions-section');
+        suggestionsSection.style.display = 'block';
+
+        const container = document.getElementById('suggestions-container');
+        container.innerHTML = `
+            <div class="suggestion-card validation-result">
+                <div class="suggestion-header">
+                    <span class="suggestion-icon">🔧</span>
+                    <div class="suggestion-title">Kalibrierung Angewendet</div>
+                    <div class="suggestion-meta">Rohstoff-Anpassung basierend auf Food Scan</div>
+                </div>
+                <div class="suggestion-details">
+                    ${calibrationReport.join('<br>')}
+                </div>
+                <div style="margin-top: 15px;">
+                    <button onclick="location.reload()" class="calculate-btn secondary-action" style="margin-right: 10px;">
+                        🔄 Zurücksetzen
+                    </button>
+                    <button onclick="exportCalibratedMaterials()" class="calculate-btn primary-action">
+                        💾 Werte Exportieren
+                    </button>
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Fehler bei automatischer Kalibrierung:', error);
+        showError('Kalibrierungsfehler', 'Fehler bei der automatischen Kalibrierung: ' + error.message);
+    }
+}
+
+// Kalibrierte Werte exportieren
+function exportCalibratedMaterials() {
+    try {
+        const exportData = {
+            timestamp: new Date().toISOString(),
+            calibratedMaterials: rawMaterials,
+            calibrationNote: 'Rohstoff-Werte kalibriert basierend auf Food Scan Brät-Referenz'
+        };
+
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `rohstoffe_kalibriert_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        console.log('📁 Kalibrierte Rohstoff-Werte exportiert');
+        alert('✅ Kalibrierte Rohstoff-Werte wurden exportiert!');
+
+    } catch (error) {
+        console.error('Fehler beim Export:', error);
+        showError('Export-Fehler', 'Fehler beim Exportieren der kalibrierten Werte: ' + error.message);
+    }
 }
 
 // Strategie 2: Wasser + minimaler Rohstoff-Zusatz
@@ -1424,14 +2257,39 @@ function calculateMixture(material1, material2, ratio1, ratio2) {
     const bindegewebsEiweiß = hydroxy * 8;
     const beffe = protein - bindegewebsEiweiß;
     const wew = water / protein;
-    
-    return { protein, fat, water, hydroxy, beffe, wew, bindegewebsEiweiß, be: bindegewebsEiweiß };
+    const waterProteinRatio = calculateWaterToProteinRatio(water, protein);
+    const fatProteinRatio = calculateFatToProteinRatio(fat, protein);
+
+    return {
+        protein,
+        fat,
+        water,
+        hydroxy,
+        beffe,
+        wew,
+        bindegewebsEiweiß,
+        be: bindegewebsEiweiß,
+        waterProteinRatio,
+        fatProteinRatio
+    };
 }
 
 // BEFFE aus Protein und Hydroxy berechnen
 function calculateBEFFEFromValues(protein, hydroxy) {
     const bindegewebsEiweiß = hydroxy * 8;
     return protein - bindegewebsEiweiß;
+}
+
+// Wasser zu Fleischprotein Faktor berechnen (sollte ≤ 5,5)
+function calculateWaterToProteinRatio(water, protein) {
+    if (protein <= 0) return 0;
+    return water / protein;
+}
+
+// Fett zu Fleischprotein Faktor berechnen (sollte ≤ 3,2)
+function calculateFatToProteinRatio(fat, protein) {
+    if (protein <= 0) return 0;
+    return fat / protein;
 }
 
 // Qualitätsscore berechnen
