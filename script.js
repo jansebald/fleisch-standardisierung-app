@@ -16,14 +16,17 @@ const productSpecs = {
 };
 
 // Standard-Rohstoffe mit Eigenschaften
+// Reihenfolge wie Food Scan Output: BE% → Fett% → Wasser% → Eiweiß% → BEFFE%
 const rawMaterials = {
-    "s3": { protein: 17.2, fat: 14.5, water: 67.3, be: 1.0, hydroxy: 0.10, price: 5.50, name: "S III" },
-    "s8": { protein: 2.5, fat: 88.0, water: 8.5, be: 0.2, hydroxy: 0.02, price: 3.20, name: "S VIII" },
-    "ice": { protein: 0.0, fat: 0.0, water: 100.0, be: 0.0, hydroxy: 0.0, price: 0.05, name: "Eis/Wasser" },
-    "schulter": { protein: 19.21, fat: 11.77, water: 69.3, be: 1.23, hydroxy: 0.154, price: 6.20, name: "Schulter schier" },
-    "backen": { protein: 12.484, fat: 45.162, water: 42.048, be: 2.172, hydroxy: 0.272, price: 4.80, name: "Backen" },
-    "braet": { protein: 13.52, fat: 11.56, water: 71.86, be: 1.71, hydroxy: 0.214, price: 7.50, name: "Fertiges Brät (Validierung)" },
-    "custom": { protein: 15.0, fat: 20.0, water: 64.0, be: 1.2, hydroxy: 0.08, price: 4.00, name: "Benutzerdefiniert" }
+    "s3": { be: 1.458, fat: 23.144, water: 59.562, protein: 17.298, beffe: 15.842, price: 5.50, name: "S III" },
+    "s8": { be: 0.2, fat: 88.0, water: 8.5, protein: 2.5, beffe: 2.34, price: 3.20, name: "S VIII" },
+    "s9": { be: 2.488, fat: 70.19, water: 20.652, protein: 8.994, beffe: 6.508, price: 3.50, name: "S IX" },
+    "ice": { be: 0.0, fat: 0.0, water: 100.0, protein: 0.0, beffe: 0.0, price: 0.05, name: "Eis/Wasser" },
+    "schulter": { be: 1.23, fat: 11.77, water: 69.3, protein: 19.21, beffe: 17.98, price: 6.20, name: "Schulter schier" },
+    "backen": { be: 2.172, fat: 45.162, water: 42.048, protein: 12.484, beffe: 10.31, price: 4.80, name: "Backen" },
+    "braet": { be: 1.71, fat: 11.56, water: 71.86, protein: 13.52, beffe: 11.81, price: 7.50, name: "Fertiges Brät (Validierung)" },
+    "gewuerze": { be: 0.0, fat: 3.0, water: 6.0, protein: 10.0, beffe: 0.0, price: 15.0, name: "Gewürze & Zusatzstoffe" },
+    "custom": { be: 1.2, fat: 20.0, water: 64.0, protein: 15.0, beffe: 13.8, price: 4.00, name: "Benutzerdefiniert" }
 };
 
 // App initialisieren
@@ -99,7 +102,8 @@ function updateCurrentDefaults(index) {
         document.getElementById(`current-fat-${index}`).value = material.fat.toFixed(1);
         document.getElementById(`current-water-${index}`).value = material.water.toFixed(1);
         document.getElementById(`current-be-${index}`).value = material.be.toFixed(1);
-        calculateCurrentBEFFE(index);
+        // BEFFE direkt aus rawMaterials setzen (keine Berechnung mehr nötig)
+        document.getElementById(`current-beffe-manual-${index}`).value = material.beffe.toFixed(1);
     }
     updateTotalMixture();
 }
@@ -159,16 +163,18 @@ function addMaterial() {
                     <select id="current-type-${newIndex}" onchange="updateCurrentDefaults(${newIndex}); updateTotalMixture()">
                         <option value="s3">S III</option>
                         <option value="s8">S VIII</option>
+                        <option value="s9">S IX</option>
                         <option value="ice">Eis/Wasser</option>
                         <option value="schulter">Schulter schier</option>
                         <option value="backen">Backen</option>
                         <option value="braet">Fertiges Brät (Validierung)</option>
+                        <option value="gewuerze">Gewürze & Zusatzstoffe</option>
                         <option value="custom">Benutzerdefiniert</option>
                     </select>
                 </div>
                 <div class="input-group">
-                    <label for="current-protein-${newIndex}">Eiweiß (%)</label>
-                    <input type="number" id="current-protein-${newIndex}" value="17.2" step="0.1" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                    <label for="current-be-${newIndex}">BE - Bindegewebseiweiß (%)</label>
+                    <input type="number" id="current-be-${newIndex}" value="1.0" step="0.1" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-fat-${newIndex}">Fett (%)</label>
@@ -179,16 +185,16 @@ function addMaterial() {
                     <input type="number" id="current-water-${newIndex}" value="67.3" step="0.1" oninput="updateTotalMixture()">
                 </div>
                 <div class="input-group">
-                    <label for="current-be-${newIndex}">BE - Bindegewebseiweiß (%)</label>
-                    <input type="number" id="current-be-${newIndex}" value="1.0" step="0.1" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                    <label for="current-protein-${newIndex}">Eiweiß (%)</label>
+                    <input type="number" id="current-protein-${newIndex}" value="17.2" step="0.1" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                </div>
+                <div class="input-group">
+                    <label for="current-beffe-manual-${newIndex}">BEFFE (%)</label>
+                    <input type="number" id="current-beffe-manual-${newIndex}" value="16.4" step="0.1" oninput="updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-amount-${newIndex}">Verfügbare Menge (kg)</label>
-                    <input type="number" id="current-amount-${newIndex}" value="500" step="10" oninput="updateTotalMixture()">
-                </div>
-                <div class="input-group">
-                    <label for="current-beffe-manual-${newIndex}">BEFFE (%) - Food Scan</label>
-                    <input type="number" id="current-beffe-manual-${newIndex}" value="16.4" step="0.1" oninput="updateTotalMixture()">
+                    <input type="number" id="current-amount-${newIndex}" placeholder="z.B. 500" step="10" min="0" oninput="updateTotalMixture()">
                 </div>
             </div>
         </div>
@@ -347,7 +353,6 @@ function getAllMaterials() {
                 be: parseFloat(beElement.value) || 0,
                 amount: parseFloat(amountElement.value) || 0,
                 beffe: parseFloat(beffeElement.value) || 0,
-                hydroxy: rawMaterials[type]?.hydroxy || 0.08,
                 price: rawMaterials[type]?.price || 4.00
             });
         }
@@ -369,12 +374,11 @@ function calculateCurrentMixture(materials) {
             beffe: 0,
             amount: 0,
             price: 0,
-            hydroxy: 0.08,
             waterProteinRatio: 0,
             fatProteinRatio: 0
         };
     }
-    
+
     let totalAmount = 0;
     let totalProtein = 0;
     let totalFat = 0;
@@ -382,8 +386,7 @@ function calculateCurrentMixture(materials) {
     let totalBE = 0;
     let totalBEFFE = 0;
     let totalCost = 0;
-    let weightedHydroxy = 0;
-    
+
     materials.forEach(material => {
         const amount = material.amount;
         totalAmount += amount;
@@ -393,7 +396,6 @@ function calculateCurrentMixture(materials) {
         totalBE += material.be * amount;
         totalBEFFE += material.beffe * amount;
         totalCost += material.price * amount;
-        weightedHydroxy += material.hydroxy * amount;
     });
     
     if (totalAmount === 0) {
@@ -407,7 +409,6 @@ function calculateCurrentMixture(materials) {
             beffe: 0,
             amount: 0,
             price: 0,
-            hydroxy: 0.08,
             waterProteinRatio: 0,
             fatProteinRatio: 0
         };
@@ -427,7 +428,6 @@ function calculateCurrentMixture(materials) {
         beffe: totalBEFFE / totalAmount,
         amount: totalAmount,
         price: totalCost / totalAmount,
-        hydroxy: weightedHydroxy / totalAmount,
         waterProteinRatio: calculateWaterToProteinRatio(water, protein),
         fatProteinRatio: calculateFatToProteinRatio(fat, protein)
     };
@@ -509,6 +509,27 @@ function calculateSpiceAmount(baseMixture) {
 function calculateSpiceCost(spiceAmount) {
     const spiceSettings = getSpiceSettings();
     return spiceAmount * spiceSettings.cost;
+}
+
+// Gewürze-Nährstoffe in Mischung integrieren
+function applySpicesToMix(baseMix, baseMixAmount) {
+    const spiceAmount = calculateSpiceAmount(baseMixAmount);
+    const spiceMaterial = rawMaterials.gewuerze;
+    const totalAmount = baseMixAmount + spiceAmount;
+
+    // Neue Nährstoffwerte MIT Gewürzen berechnen
+    const mixWithSpices = {
+        protein: (baseMix.protein * baseMixAmount + spiceMaterial.protein * spiceAmount) / totalAmount,
+        fat: (baseMix.fat * baseMixAmount + spiceMaterial.fat * spiceAmount) / totalAmount,
+        water: (baseMix.water * baseMixAmount + spiceMaterial.water * spiceAmount) / totalAmount,
+        be: (baseMix.be * baseMixAmount + spiceMaterial.be * spiceAmount) / totalAmount,
+        beffe: ((baseMix.beffe || 0) * baseMixAmount + spiceMaterial.beffe * spiceAmount) / totalAmount,
+        amount: totalAmount,
+        spiceAmount: spiceAmount,
+        price: ((baseMix.price || 0) * baseMixAmount + spiceMaterial.price * spiceAmount) / totalAmount
+    };
+
+    return mixWithSpices;
 }
 
 // Erweiterte Gewürz-Funktionen
@@ -696,44 +717,44 @@ function calculateMaxWaterAddition(current, target) {
     // Berechne finale Mischung mit maximalem Wasser
     const waterMaterial = rawMaterials.ice;
     const finalAmount = current.amount + maxPossibleWater;
-    
-    const protein = (current.protein * current.amount + waterMaterial.protein * maxPossibleWater) / finalAmount;
-    const hydroxy = (current.hydroxy * current.amount + waterMaterial.hydroxy * maxPossibleWater) / finalAmount;
-    const bindegewebsEiweiß = hydroxy * 8;
 
-    const finalMix = {
+    const protein = (current.protein * current.amount + waterMaterial.protein * maxPossibleWater) / finalAmount;
+
+    let finalMix = {
         protein: protein,
         fat: (current.fat * current.amount + waterMaterial.fat * maxPossibleWater) / finalAmount,
         water: (current.water * current.amount + waterMaterial.water * maxPossibleWater) / finalAmount,
-        beffe: (current.beffe * current.amount + 0 * maxPossibleWater) / finalAmount,
-        hydroxy: hydroxy,
-        bindegewebsEiweiß: bindegewebsEiweiß,
-        be: bindegewebsEiweiß
+        be: (current.be * current.amount + waterMaterial.be * maxPossibleWater) / finalAmount,
+        beffe: (current.beffe * current.amount + waterMaterial.beffe * maxPossibleWater) / finalAmount,
+        price: current.price || 0
     };
-    
-    console.log(`💧 Finale Mischung: ${finalMix.protein.toFixed(1)}% Eiweiß, ${finalMix.fat.toFixed(1)}% Fett, ${finalMix.water.toFixed(1)}% Wasser`);
-    
+
+    // WICHTIG: Gewürze in finale Mischung einrechnen
+    finalMix = applySpicesToMix(finalMix, finalAmount);
+
+    console.log(`💧 Finale Mischung (MIT Gewürzen): ${finalMix.protein.toFixed(1)}% Eiweiß, ${finalMix.fat.toFixed(1)}% Fett, ${finalMix.water.toFixed(1)}% Wasser, BE: ${finalMix.be.toFixed(2)}%`);
+
     // Prüfe ob Leitsätze eingehalten werden
     if (!checkLeitsaetze(finalMix, target)) {
         console.log('💧 Leitsätze nicht eingehalten');
         return null;
     }
     
-    const totalCost = (current.price * current.amount) + (waterMaterial.price * maxPossibleWater);
-    const waterPercentage = (maxPossibleWater / finalAmount) * 100;
-    
-    console.log(`✅ Reiner Wasser-Zusatz möglich: ${maxPossibleWater.toFixed(0)}kg Wasser (${waterPercentage.toFixed(1)}%)`);
-    
+    const totalCost = (current.price * current.amount) + (waterMaterial.price * maxPossibleWater) + (rawMaterials.gewuerze.price * finalMix.spiceAmount);
+    const waterPercentage = (maxPossibleWater / finalMix.amount) * 100;
+
+    console.log(`✅ Reiner Wasser-Zusatz möglich: ${maxPossibleWater.toFixed(0)}kg Wasser + ${finalMix.spiceAmount.toFixed(2)}kg Gewürze (${waterPercentage.toFixed(1)}%)`);
+
     return {
         type: 'water-only',
         strategy: 'Maximaler Wasser-Zusatz',
-        description: `${maxPossibleWater.toFixed(0)}kg Wasser hinzufügen`,
+        description: `${maxPossibleWater.toFixed(0)}kg Wasser + ${finalMix.spiceAmount.toFixed(1)}kg Gewürze hinzufügen`,
         waterAmount: maxPossibleWater,
         additionalMaterials: [],
         finalMix: finalMix,
-        totalAmount: finalAmount,
+        totalAmount: finalMix.amount,
         cost: totalCost,
-        costPerKg: totalCost / finalAmount,
+        costPerKg: totalCost / finalMix.amount,
         waterPercentage: waterPercentage,
         isOptimal: true
     };
@@ -1442,8 +1463,8 @@ function calculateWaterPlusMinimal(current, target) {
     const optimizations = [];
     
     // Teste verschiedene Rohstoffe mit maximaler Wasser-Schüttung
-    const materials = Object.entries(rawMaterials).filter(([key]) => key !== 'ice' && key !== 'custom');
-    
+    const materials = Object.entries(rawMaterials).filter(([key]) => key !== 'ice' && key !== 'custom' && key !== 'gewuerze');
+
     for (const [materialType, material] of materials) {
         // Teste verschiedene Verhältnisse: 70% Wasser, 30% Rohstoff bis 30% Wasser, 70% Rohstoff
         for (let waterRatio = 0.7; waterRatio >= 0.3; waterRatio -= 0.1) {
@@ -1455,36 +1476,36 @@ function calculateWaterPlusMinimal(current, target) {
             const waterMaterial = rawMaterials.ice;
             
             const protein = (current.protein * current.amount + waterMaterial.protein * waterAmount + material.protein * materialAmount) / finalAmount;
-            const hydroxy = (current.hydroxy * current.amount + waterMaterial.hydroxy * waterAmount + material.hydroxy * materialAmount) / finalAmount;
-            const bindegewebsEiweiß = hydroxy * 8;
 
-            const finalMix = {
+            let finalMix = {
                 protein: protein,
                 fat: (current.fat * current.amount + waterMaterial.fat * waterAmount + material.fat * materialAmount) / finalAmount,
                 water: (current.water * current.amount + waterMaterial.water * waterAmount + material.water * materialAmount) / finalAmount,
-                beffe: (current.beffe * current.amount + 0 * waterAmount + calculateBEFFEFromValues(material.protein, material.hydroxy) * materialAmount) / finalAmount,
-                hydroxy: hydroxy,
-                bindegewebsEiweiß: bindegewebsEiweiß,
-                be: bindegewebsEiweiß
+                be: (current.be * current.amount + waterMaterial.be * waterAmount + material.be * materialAmount) / finalAmount,
+                beffe: (current.beffe * current.amount + waterMaterial.beffe * waterAmount + material.beffe * materialAmount) / finalAmount,
+                price: (current.price * current.amount + waterMaterial.price * waterAmount + material.price * materialAmount) / finalAmount
             };
-            
+
+            // WICHTIG: Gewürze in finale Mischung einrechnen
+            finalMix = applySpicesToMix(finalMix, finalAmount);
+
             if (checkLeitsaetze(finalMix, target)) {
-                const totalCost = (current.price * current.amount) + (waterMaterial.price * waterAmount) + (material.price * materialAmount);
-                const waterPercentage = (waterAmount / finalAmount) * 100;
-                
+                const totalCost = (current.price * current.amount) + (waterMaterial.price * waterAmount) + (material.price * materialAmount) + (rawMaterials.gewuerze.price * finalMix.spiceAmount);
+                const waterPercentage = (waterAmount / finalMix.amount) * 100;
+
                 optimizations.push({
                     type: 'water-plus-material',
                     strategy: 'Wasser + Rohstoff',
-                    description: formatAmountDescription(materialAmount, material.name),
+                    description: formatAmountDescription(materialAmount, material.name) + ` + ${finalMix.spiceAmount.toFixed(1)}kg Gewürze`,
                     waterAmount: waterAmount,
                     additionalMaterials: [
                         {material: rawMaterials.ice, amount: waterAmount, type: 'ice'},
                         {material: material, amount: materialAmount, type: materialType}
                     ],
                     finalMix: finalMix,
-                    totalAmount: finalAmount,
+                    totalAmount: finalMix.amount,
                     cost: totalCost,
-                    costPerKg: totalCost / finalAmount,
+                    costPerKg: totalCost / finalMix.amount,
                     waterPercentage: waterPercentage,
                     waterRatio: waterRatio
                 });
@@ -3065,18 +3086,20 @@ function addWaterToMix(mix, currentAmount, waterAmount) {
     const waterMaterial = rawMaterials.ice;
 
     const protein = (mix.protein * currentAmount + waterMaterial.protein * waterAmount) / finalAmount;
-    const hydroxy = (mix.hydroxy * currentAmount + waterMaterial.hydroxy * waterAmount) / finalAmount;
-    const bindegewebsEiweiß = hydroxy * 8;
 
-    return {
+    let finalMix = {
         protein: protein,
         fat: (mix.fat * currentAmount + waterMaterial.fat * waterAmount) / finalAmount,
         water: (mix.water * currentAmount + waterMaterial.water * waterAmount) / finalAmount,
-        beffe: (mix.beffe * currentAmount + 0 * waterAmount) / finalAmount,
-        hydroxy: hydroxy,
-        bindegewebsEiweiß: bindegewebsEiweiß,
-        be: bindegewebsEiweiß
+        be: (mix.be * currentAmount + waterMaterial.be * waterAmount) / finalAmount,
+        beffe: (mix.beffe * currentAmount + waterMaterial.beffe * waterAmount) / finalAmount,
+        price: ((mix.price || 0) * currentAmount + waterMaterial.price * waterAmount) / finalAmount
     };
+
+    // WICHTIG: Gewürze in finale Mischung einrechnen
+    finalMix = applySpicesToMix(finalMix, finalAmount);
+
+    return finalMix;
 }
 
 // Hilfsfunktion: Berechnet neue Gesamtkosten
@@ -3084,7 +3107,10 @@ function calculateNewTotalCost(current, removedMaterial, removeAmount, waterAmou
     const originalCost = current.price * current.amount;
     const removedCost = removedMaterial.price * removeAmount;
     const addedCost = rawMaterials.ice.price * waterAmount;
-    return originalCost - removedCost + addedCost;
+    const finalAmount = current.amount - removeAmount + waterAmount;
+    const spiceAmount = calculateSpiceAmount(finalAmount);
+    const spiceCost = rawMaterials.gewuerze.price * spiceAmount;
+    return originalCost - removedCost + addedCost + spiceCost;
 }
 
 // Hilfsfunktion: Berechnet Kosten für kombinierte Reduzierung

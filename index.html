@@ -59,16 +59,18 @@
                                 <select id="current-type-0" onchange="updateCurrentDefaults(0); updateTotalMixture()" aria-describedby="type-help-0">
                                     <option value="s3">S III</option>
                                     <option value="s8">S VIII</option>
+                                    <option value="s9">S IX</option>
                                     <option value="ice">Eis/Wasser</option>
                                     <option value="schulter">Schulter schier</option>
                                     <option value="backen">Backen</option>
                                     <option value="braet">Fertiges Brät (Validierung)</option>
+                                    <option value="gewuerze">Gewürze & Zusatzstoffe</option>
                                     <option value="custom">Benutzerdefiniert</option>
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label for="current-protein-0">Eiweiß (%)</label>
-                                <input type="number" id="current-protein-0" value="17.2" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(0); updateTotalMixture()" aria-describedby="protein-help-0">
+                                <label for="current-be-0">BE - Bindegewebseiweiß (%)</label>
+                                <input type="number" id="current-be-0" value="1.0" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(0); updateTotalMixture()" aria-describedby="be-help-0">
                             </div>
                             <div class="input-group">
                                 <label for="current-fat-0">Fett (%)</label>
@@ -79,16 +81,16 @@
                                 <input type="number" id="current-water-0" value="67.3" step="0.1" min="0" max="100" oninput="updateTotalMixture()" aria-describedby="water-help-0">
                             </div>
                             <div class="input-group">
-                                <label for="current-be-0">BE - Bindegewebseiweiß (%)</label>
-                                <input type="number" id="current-be-0" value="1.0" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(0); updateTotalMixture()" aria-describedby="be-help-0">
+                                <label for="current-protein-0">Eiweiß (%)</label>
+                                <input type="number" id="current-protein-0" value="17.2" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(0); updateTotalMixture()" aria-describedby="protein-help-0">
+                            </div>
+                            <div class="input-group">
+                                <label for="current-beffe-manual-0">BEFFE (%)</label>
+                                <input type="number" id="current-beffe-manual-0" value="16.4" step="0.1" min="0" max="100" oninput="updateTotalMixture()" aria-describedby="beffe-help-0">
                             </div>
                             <div class="input-group">
                                 <label for="current-amount-0">Verfügbare Menge (kg)</label>
-                                <input type="number" id="current-amount-0" value="1000" step="10" min="0" oninput="updateTotalMixture()" aria-describedby="amount-help-0">
-                            </div>
-                            <div class="input-group">
-                                <label for="current-beffe-manual-0">BEFFE (%) - Food Scan</label>
-                                <input type="number" id="current-beffe-manual-0" value="16.4" step="0.1" min="0" max="100" oninput="updateTotalMixture()" aria-describedby="beffe-help-0">
+                                <input type="number" id="current-amount-0" placeholder="z.B. 1000" step="10" min="0" oninput="updateTotalMixture()" aria-describedby="amount-help-0">
                             </div>
                         </div>
                     </article>
@@ -321,11 +323,11 @@
                         </div>
                         <div class="setting-item">
                             <label for="spice-factor">Gewürz-Faktor (%)</label>
-                            <input type="number" id="spice-factor" value="2.5" step="0.1" min="0" max="10" title="Prozentsatz der Gesamtmasse für Gewürze und Zusatzstoffe">
+                            <input type="number" id="spice-factor" value="0" step="0.1" min="0" max="10" title="Prozentsatz der Gesamtmasse für Gewürze und Zusatzstoffe">
                         </div>
                         <div class="setting-item">
                             <label for="spice-cost">Gewürz-Kosten (€/kg)</label>
-                            <input type="number" id="spice-cost" value="15.0" step="0.5" min="0" max="100" title="Durchschnittliche Kosten für Gewürzmischung pro kg">
+                            <input type="number" id="spice-cost" value="0" step="0.5" min="0" max="100" title="Durchschnittliche Kosten für Gewürzmischung pro kg">
                         </div>
                         <div class="setting-item">
                             <label for="advanced-spices">Erweiterte Gewürz-Eingabe</label>
