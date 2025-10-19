@@ -1908,3 +1908,133 @@ body {
     }
 }
 
+/* Kostenoptimierung Styles */
+.cost-action {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.cost-action:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px rgba(245, 158, 11, 0.3);
+}
+
+.action-section {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.action-section .calculate-btn {
+    flex: 1;
+    min-width: 250px;
+}
+
+/* Bestellliste */
+.order-list {
+    background: rgba(245, 158, 11, 0.05);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.order-list h4 {
+    color: #f59e0b;
+    font-size: 1rem;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+}
+
+.order-item:last-child {
+    margin-bottom: 0;
+}
+
+.order-item:hover {
+    background: rgba(245, 158, 11, 0.05);
+    transform: translateX(4px);
+}
+
+.order-name {
+    font-weight: 600;
+    color: #2c3e50;
+    flex: 2;
+}
+
+.order-amount {
+    font-weight: 500;
+    color: #3498db;
+    flex: 1;
+    text-align: right;
+}
+
+.order-price {
+    font-weight: 700;
+    color: #f59e0b;
+    flex: 1;
+    text-align: right;
+}
+
+.cost-optimization-card {
+    border: 2px solid rgba(245, 158, 11, 0.3);
+}
+
+.cost-optimization-card:hover {
+    border-color: #f59e0b;
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.15);
+}
+
+.suggestion-badge.cost-optimized {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.detail-item.highlight {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.detail-item.highlight .detail-value {
+    color: #f59e0b;
+    font-weight: 700;
+}
+
+.nutrition-summary {
+    margin-top: 10px;
+    opacity: 0.8;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .action-section {
+        flex-direction: column;
+    }
+
+    .action-section .calculate-btn {
+        width: 100%;
+        min-width: auto;
+    }
+
+    .order-item {
+        flex-direction: column;
+        gap: 5px;
+        text-align: center;
+    }
+
+    .order-name, .order-amount, .order-price {
+        flex: none;
+        width: 100%;
+        text-align: center;
+    }
+}
+
