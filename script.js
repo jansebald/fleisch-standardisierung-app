@@ -48,14 +48,14 @@ const productSpecs = {
 // Standard-Rohstoffe mit Eigenschaften
 // Reihenfolge wie Food Scan Output: BE% → Fett% → Wasser% → Eiweiß% → BEFFE%
 const rawMaterials = {
-    "s3": { be: 1.458, fat: 23.144, water: 59.562, protein: 17.298, beffe: 15.842, price: 5.50, name: "S III" },
+    "s3": { be: 1.17, fat: 19.66, water: 62.12, protein: 17.62, beffe: 16.45, price: 5.50, name: "S III (Food Scan)" },
     "s8": { be: 0.2, fat: 88.0, water: 8.5, protein: 2.5, beffe: 2.34, price: 3.20, name: "S VIII" },
-    "s9": { be: 2.488, fat: 70.19, water: 20.652, protein: 8.994, beffe: 6.508, price: 3.50, name: "S IX" },
+    "s9": { be: 2.74, fat: 65.72, water: 24.59, protein: 8.95, beffe: 6.22, price: 3.50, name: "S IX (Food Scan)" },
     "ice": { be: 0.0, fat: 0.0, water: 100.0, protein: 0.0, beffe: 0.0, price: 0.05, name: "Eis/Wasser" },
     "schulter": { be: 1.23, fat: 11.77, water: 69.3, protein: 19.21, beffe: 17.98, price: 6.20, name: "Schulter schier" },
     "backen": { be: 2.172, fat: 45.162, water: 42.048, protein: 12.484, beffe: 10.31, price: 4.80, name: "Backen" },
     "braet": { be: 1.71, fat: 11.56, water: 71.86, protein: 13.52, beffe: 11.81, price: 7.50, name: "Fertiges Brät (Validierung)" },
-    "gewuerze": { be: 0.0, fat: 3.0, water: 6.0, protein: 10.0, beffe: 0.0, price: 15.0, name: "Gewürze & Zusatzstoffe" },
+    "gewuerze": { be: 22.10, fat: 0.57, water: 5.77, protein: 0.19, beffe: 0.0, price: 15.0, name: "Gewürze & Zusatzstoffe (kalibriert)" },
     "custom": { be: 1.2, fat: 20.0, water: 64.0, protein: 15.0, beffe: 13.8, price: 4.00, name: "Benutzerdefiniert" }
 };
 
@@ -126,6 +126,8 @@ function clearAppCache() {
 // Aktuelle Rohstoff-Defaults aktualisieren
 function updateCurrentDefaults(index) {
     const type = document.getElementById(`current-type-${index}`).value;
+    console.log('🔍 updateCurrentDefaults called with index:', index, 'type:', type);
+    
     if (type !== 'custom' && rawMaterials[type]) {
         const material = rawMaterials[type];
         document.getElementById(`current-protein-${index}`).value = material.protein.toFixed(1);
@@ -135,6 +137,16 @@ function updateCurrentDefaults(index) {
         // BEFFE direkt aus rawMaterials setzen (keine Berechnung mehr nötig)
         document.getElementById(`current-beffe-manual-${index}`).value = material.beffe.toFixed(1);
     }
+    
+    // Spezial-Behandlung für Fertiges Brät: Zeige Rückrechnungs-UI
+    if (type === 'braet') {
+        console.log('✅ Brät detected! Calling showBraetAnalysis...');
+        showBraetAnalysis(index);
+    } else {
+        console.log('❌ Not Brät, hiding analysis...');
+        hideBraetAnalysis(index);
+    }
+    
     updateTotalMixture();
 }
 
@@ -151,13 +163,61 @@ function updateTargetSpecs() {
     }
 }
 
-// Aktuelle BEFFE berechnen
-function calculateCurrentBEFFE(index) {
+// Gewürz-Korrektur anwenden (Live-Korrektur)
+function applyGewuerzKorrektur(index) {
+    const beInput = document.getElementById(`current-be-${index}`);
+    const gewuerzToggle = document.getElementById(`gewuerz-toggle-${index}`);
+    const korrekturDisplay = document.getElementById(`be-korrektur-display-${index}`);
+    const beOriginalSpan = document.getElementById(`be-original-${index}`);
+    const beCorrectedSpan = document.getElementById(`be-corrected-${index}`);
+    
+    const beOriginal = parseFloat(beInput.value) || 0;
+    const GEWUERZ_OFFSET = 0.84; // Standard-Gewürz erhöht BE um 0.84%
+    
+    let beKorrigiert = beOriginal;
+    
+    if (gewuerzToggle && gewuerzToggle.checked) {
+        // Korrektur anwenden: Gemessener BE - Gewürz-Offset
+        beKorrigiert = beOriginal - GEWUERZ_OFFSET;
+        
+        // Visualisierung anzeigen
+        if (korrekturDisplay && beOriginalSpan && beCorrectedSpan) {
+            beOriginalSpan.textContent = beOriginal.toFixed(2) + '%';
+            beCorrectedSpan.textContent = beKorrigiert.toFixed(2) + '%';
+            korrekturDisplay.style.display = 'flex';
+        }
+    } else {
+        // Keine Korrektur - Display verstecken
+        if (korrekturDisplay) {
+            korrekturDisplay.style.display = 'none';
+        }
+    }
+    
+    // BEFFE mit dem korrigierten BE-Wert neu berechnen
+    calculateCurrentBEFFE(index, beKorrigiert);
+}
+
+// Aktuelle BEFFE berechnen (mit optionalem korrigiertem BE-Wert)
+function calculateCurrentBEFFE(index, beKorrigiert = null) {
     const protein = parseFloat(document.getElementById(`current-protein-${index}`).value) || 0;
-    const be = parseFloat(document.getElementById(`current-be-${index}`).value) || 0;
+    
+    // Verwende korrigierten BE-Wert falls vorhanden, sonst Original
+    let be;
+    if (beKorrigiert !== null) {
+        be = beKorrigiert;
+    } else {
+        const beInput = document.getElementById(`current-be-${index}`);
+        const gewuerzToggle = document.getElementById(`gewuerz-toggle-${index}`);
+        be = parseFloat(beInput.value) || 0;
+        
+        // Prüfe ob Korrektur aktiv ist
+        if (gewuerzToggle && gewuerzToggle.checked) {
+            be = be - 0.84; // Gewürz-Offset
+        }
+    }
 
     if (protein > 0) {
-        // BEFFE = Fleischeiweiß - Bindegewebseiweiß
+        // BEFFE = Fleischeiweiß - Bindegewebseiweiß (mit korrigiertem BE!)
         const beffe = protein - be;
 
         // Setze den berechneten BEFFE-Wert in das manuelle Input-Feld
@@ -331,6 +391,28 @@ function updateTotalMixture() {
     document.getElementById('total-water').textContent = `${avgWater.toFixed(1)}%`;
     document.getElementById('total-be').textContent = `${avgBE.toFixed(1)}%`;
     document.getElementById('total-beffe').textContent = `${avgBEFFE.toFixed(1)}%`;
+    document.getElementById('total-water-protein-ratio').textContent = `${waterProteinRatio.toFixed(1)}`;
+    document.getElementById('total-fat-protein-ratio').textContent = `${fatProteinRatio.toFixed(1)}`;
+    document.getElementById('total-spice-amount').textContent = `${spiceAmount.toFixed(1)} kg`;
+    document.getElementById('total-spice-cost').textContent = `${spiceCost.toFixed(2)}€`;
+
+    // Fertigware-Prognose berechnen und anzeigen
+    const rohware = {
+        be: avgBE,
+        fat: avgFat,
+        water: avgWater,
+        protein: avgProtein,
+        beffe: avgBEFFE
+    };
+    const fertigware = calculateFertigware(rohware);
+    
+    document.getElementById('fertig-protein').textContent = `${fertigware.protein.toFixed(1)}%`;
+    document.getElementById('fertig-fat').textContent = `${fertigware.fat.toFixed(1)}%`;
+    document.getElementById('fertig-water').textContent = `${fertigware.water.toFixed(1)}%`;
+    document.getElementById('fertig-be').textContent = `${fertigware.be.toFixed(1)}%`;
+    document.getElementById('fertig-beffe').textContent = `${fertigware.beffe.toFixed(1)}%`;
+    document.getElementById('total-be').textContent = `${avgBE.toFixed(1)}%`;
+    document.getElementById('total-beffe').textContent = `${avgBEFFE.toFixed(1)}%`;
 
     // Neue Faktoren mit Farbkodierung
     const waterProteinElement = document.getElementById('total-water-protein-ratio');
@@ -388,6 +470,13 @@ function getAllMaterials() {
                 return;
             }
 
+            // BE-Wert mit Gewürz-Korrektur lesen
+            let beValue = parseFloat(beElement.value) || 0;
+            const gewuerzToggle = document.getElementById(`gewuerz-toggle-${index}`);
+            if (gewuerzToggle && gewuerzToggle.checked) {
+                beValue = beValue - 0.84; // Gewürz-Offset abziehen
+            }
+
             materials.push({
                 index: parseInt(index),
                 type: type,
@@ -395,7 +484,7 @@ function getAllMaterials() {
                 protein: parseFloat(proteinElement.value) || 0,
                 fat: parseFloat(fatElement.value) || 0,
                 water: parseFloat(waterElement.value) || 0,
-                be: parseFloat(beElement.value) || 0,
+                be: beValue, // Verwende korrigierten BE-Wert!
                 amount: parseFloat(amountElement.value) || 0,
                 beffe: parseFloat(beffeElement.value) || 0,
                 price: rawMaterials[type]?.price || 4.00
@@ -482,7 +571,34 @@ function calculateCurrentMixture(materials) {
 function calculateOptimization() {
     try {
         hideError();
+        hideSuccess();
+        showLoading('Optimierung läuft...', 'Maximale Wasser-Schüttung wird berechnet');
 
+        // Safety-Timeout: Wenn Optimierung länger als 10 Sekunden dauert, abbrechen
+        const safetyTimeout = setTimeout(() => {
+            hideLoading();
+            showErrorMessage('⏱️ Timeout', 'Die Optimierung dauert zu lange. Bitte überprüfe deine Eingaben (z.B. verfügbare Mengen).');
+        }, 10000);
+
+        // Kleine Verzögerung für besseres UX (Loading-Animation sichtbar machen)
+        setTimeout(() => {
+            try {
+                performOptimization();
+                clearTimeout(safetyTimeout); // Timeout abbrechen wenn erfolgreich
+            } catch (error) {
+                clearTimeout(safetyTimeout);
+                hideLoading();
+                showErrorMessage('Fehler', error.message);
+            }
+        }, 300);
+    } catch (error) {
+        hideLoading();
+        showErrorMessage('Fehler', error.message);
+    }
+}
+
+function performOptimization() {
+    try {
         // Eingabedaten lesen
         const currentMaterials = getAllMaterials();
         const target = getTargetSpecs();
@@ -510,36 +626,74 @@ function calculateOptimization() {
         console.log('🚀 Optimierung gestartet - currentMaterials:', currentMaterials);
         console.log('🚀 Optimierung gestartet - target:', target);
 
+        // WICHTIG: Wenn Rohstoffe eingegeben wurden, versuche ZUERST eine Rezeptur daraus zu erstellen
+        // Dies ist der Hauptanwendungsfall: Benutzer hat z.B. S III + S IX und will Rezeptur für Leberwurst
+        if (currentMaterials.length > 0) {
+            console.log('🔧 Rohstoffe erkannt - erstelle optimale Rezeptur');
+            const rawMaterialOptimizations = calculateRawMaterialRecipe(currentMaterials, target);
+            if (rawMaterialOptimizations && rawMaterialOptimizations.length > 0) {
+                console.log(`✅ ${rawMaterialOptimizations.length} Rezepturen aus vorhandenen Rohstoffen erstellt`);
+                displayOptimizations(rawMaterialOptimizations);
+                currentSuggestions = rawMaterialOptimizations;
+                hideLoading();
+                showSuccess(`✅ Optimierung erfolgreich! ${rawMaterialOptimizations.length} Lösung(en) gefunden.`);
+                return;
+            } else {
+                console.log('⚠️ Keine passende Rezeptur aus eingegebenen Rohstoffen möglich');
+                console.log('💡 Versuche alternative Optimierungsstrategien...');
+            }
+        }
+
         // Berechne aktuelle Gesamt-Mischung
         const current = calculateCurrentMixture(currentMaterials);
 
         console.log('🚀 Aktuelle Mischung:', current);
 
         // Validierung für Optimierung
-        if (!validateOptimizationInputs(current, target)) return;
+        if (!validateOptimizationInputs(current, target)) {
+            hideLoading();
+            return;
+        }
 
         // Neue Optimierungslogik: Maximale Wasser-Schüttung
-        const optimizations = generateWaterOptimizations(current, target);
+        let optimizations = generateWaterOptimizations(current, target);
 
         console.log('🚀 Optimierungsergebnisse:', optimizations);
+
+        // Fallback: Wenn Wasser-Optimierung fehlschlägt, versuche Cost-Optimierung
+        if (optimizations.length === 0) {
+            console.log('⚠️ Wasser-Optimierung fehlgeschlagen - versuche Cost-Optimierung von Grund auf');
+            console.log('ℹ️ Hinweis: Cost-Optimierung erstellt eine neue Rezeptur und berücksichtigt nicht die vorhandene Ware');
+            const costOptimization = calculateCostOptimization(target);
+            if (costOptimization) {
+                optimizations = [costOptimization];
+                console.log('✅ Cost-Optimierung erfolgreich');
+            }
+        }
 
         if (optimizations.length === 0) {
             // Intelligente Diagnose und Lösungsvorschläge
             const suggestions = generateOptimizationSuggestions(current, target);
-            showError('Keine Optimierung möglich', suggestions);
+            hideLoading();
+            showErrorMessage('Keine Optimierung möglich', suggestions);
             return;
         }
 
         // Ergebnisse anzeigen
         displayOptimizations(optimizations);
         currentSuggestions = optimizations;
+        
+        // Loading beenden und Erfolg anzeigen
+        hideLoading();
+        showSuccess(`✅ Optimierung erfolgreich! ${optimizations.length} Lösung(en) gefunden.`);
 
         // Scroll zu Ergebnissen
         document.getElementById('suggestions-section').scrollIntoView({ behavior: 'smooth' });
 
     } catch (error) {
         console.error('Fehler bei der Optimierung:', error);
-        showError('Optimierungsfehler', 'Es ist ein Fehler aufgetreten.');
+        hideLoading();
+        showErrorMessage('Optimierungsfehler', 'Es ist ein Fehler aufgetreten: ' + error.message);
     }
 }
 
@@ -547,7 +701,21 @@ function calculateOptimization() {
 function calculateCostOptimizationUI() {
     try {
         hideError();
+        hideSuccess();
+        showLoading('Kostenoptimierung läuft...', 'Günstigste Rezeptur wird ermittelt');
 
+        // Kleine Verzögerung für besseres UX
+        setTimeout(() => {
+            performCostOptimization();
+        }, 300);
+    } catch (error) {
+        hideLoading();
+        showErrorMessage('Fehler', error.message);
+    }
+}
+
+function performCostOptimization() {
+    try {
         // Eingabedaten lesen
         const target = getTargetSpecs();
 
@@ -565,7 +733,8 @@ function calculateCostOptimizationUI() {
 
         // Validierung
         if (targetEndproduct <= 0) {
-            showError('Keine Zielmenge', 'Die gewünschte Endprodukt-Menge muss größer als 0 sein.');
+            hideLoading();
+            showErrorMessage('Keine Zielmenge', 'Die gewünschte Endprodukt-Menge muss größer als 0 sein.');
             return;
         }
 
@@ -583,20 +752,26 @@ function calculateCostOptimizationUI() {
         console.log('💰 Kostenoptimierung Ergebnisse:', optimizations);
 
         if (!optimizations || optimizations.length === 0) {
-            showError('Keine Optimierung möglich', 'Mit den Standardrohstoffen können die Leitsätze nicht eingehalten werden.');
+            hideLoading();
+            showErrorMessage('Keine Optimierung möglich', 'Mit den Standardrohstoffen können die Leitsätze nicht eingehalten werden.');
             return;
         }
 
         // Ergebnisse anzeigen
         displayCostOptimizations(optimizations);
         currentSuggestions = optimizations;
+        
+        // Loading beenden und Erfolg anzeigen
+        hideLoading();
+        showSuccess(`💰 Kostenoptimierung erfolgreich! Günstigste Lösung gefunden.`);
 
         // Scroll zu Ergebnissen
         document.getElementById('suggestions-section').scrollIntoView({ behavior: 'smooth' });
 
     } catch (error) {
         console.error('Fehler bei der Kostenoptimierung:', error);
-        showError('Optimierungsfehler', 'Es ist ein Fehler aufgetreten.');
+        hideLoading();
+        showErrorMessage('Optimierungsfehler', 'Es ist ein Fehler aufgetreten: ' + error.message);
     }
 }
 
@@ -832,10 +1007,30 @@ function generateWaterOptimizations(current, target) {
         if (downsizeOptimizations && downsizeOptimizations.length > 0) {
             optimizations.push(...downsizeOptimizations);
             console.log(`📉 ${downsizeOptimizations.length} Downsizing-Optimierungen gefunden`);
+            // Bei erfolgreichen Downsizing-Optimierungen: return early
+            return optimizations.slice(0, 5);
+        } else {
+            console.log(`⚠️ Downsizing durch einfache Reduzierung nicht möglich - versuche Lagerware-Optimierung`);
+            // Wenn Downsizing fehlschlägt, nutze Lagerware-Optimierung
+            // Diese fügt eiweißreiches Material hinzu und nutzt einen Teil der Lagerware
+            const stockOptimizations = calculateStockOptimization(current, target);
+            if (stockOptimizations && stockOptimizations.length > 0) {
+                console.log(`✅ ${stockOptimizations.length} Lagerware-Optimierungen gefunden`);
+                return stockOptimizations.slice(0, 5);
+            }
+            console.log(`⚠️ Auch Lagerware-Optimierung fehlgeschlagen - versuche normale Optimierung`);
         }
+    }
 
-        // Bei Downsizing: Keine weiteren Strategien nötig, return early
-        return optimizations.slice(0, 5);
+    // Wenn Lagerware vorhanden ist (auch bei current.amount <= target.quantity),
+    // versuche zuerst Lagerware-Optimierung
+    if (current.amount > 0) {
+        console.log(`📦 Versuche Lagerware-Optimierung (${current.amount}kg vorhanden)...`);
+        const stockOptimizations = calculateStockOptimization(current, target);
+        if (stockOptimizations && stockOptimizations.length > 0) {
+            console.log(`✅ ${stockOptimizations.length} Lagerware-Optimierungen gefunden`);
+            optimizations.push(...stockOptimizations);
+        }
     }
 
     // NORMALE LOGIK: Material hinzufügen (nur wenn current.amount <= target.quantity)
@@ -857,8 +1052,413 @@ function generateWaterOptimizations(current, target) {
     
     // Sortiere nach Wasser-Anteil (höchster zuerst)
     optimizations.sort((a, b) => b.waterPercentage - a.waterPercentage);
-    
+
     return optimizations.slice(0, 5); // Top 5 Optimierungen
+}
+
+// Lagerware-Optimierung: Nutzt vorhandene Ware und fügt optimal Rohstoffe hinzu
+function calculateStockOptimization(current, target) {
+    console.log('📦 Starte Lagerware-Optimierung...');
+    console.log(`📦 Vorhandene Ware: ${current.amount}kg - ${current.protein.toFixed(1)}% EW, ${current.fat.toFixed(1)}% Fett, ${current.water.toFixed(1)}% Wasser`);
+    console.log(`📦 Ziel: ${target.quantity}kg - ${target.protein}% EW, ${target.fat}% Fett, ${target.water}% Wasser`);
+
+    const optimizations = [];
+
+    // Hole Produkttyp und Standardrezeptur
+    const productType = document.getElementById('target-product')?.value;
+    if (!productType || !productSpecs[productType]) {
+        console.error('Ungültiger Produkttyp');
+        return [];
+    }
+
+    const product = productSpecs[productType];
+    const standardRecipe = product.standardRecipe || ['s3', 's8', 'ice'];
+
+    // Identifiziere verfügbare Rohstoffe aus Standardrezeptur
+    const availableMaterials = standardRecipe
+        .map(key => ({key, ...rawMaterials[key]}))
+        .filter(m => m.key !== 'ice'); // Wasser separat behandeln
+
+    // Strategie: Versuche verschiedene Mengen der Lagerware zu nutzen
+    // Beginne mit maximaler Nutzung und reduziere schrittweise
+    const maxStockUsage = Math.min(current.amount, target.quantity * 0.9); // Max 90% der Zielmenge als Lagerware
+
+    for (let stockAmount = maxStockUsage; stockAmount >= target.quantity * 0.1; stockAmount -= Math.max(0.5, target.quantity * 0.05)) {
+        // Berechne was die Lagerware zur Mischung beiträgt
+        const stockContribution = {
+            protein: (current.protein / 100) * stockAmount,
+            fat: (current.fat / 100) * stockAmount,
+            water: (current.water / 100) * stockAmount,
+            beffe: (current.beffe / 100) * stockAmount,
+            be: (current.be / 100) * stockAmount
+        };
+
+        // Berechne was noch fehlt, um Zielwerte zu erreichen
+        const remainingAmount = target.quantity - stockAmount;
+
+        if (remainingAmount < 0.5) continue; // Zu wenig Spielraum
+
+        // Versuche verschiedene Kombinationen von verfügbaren Rohstoffen
+        for (let i = 0; i < availableMaterials.length; i++) {
+            const material1 = availableMaterials[i];
+
+            // Single Material + Wasser
+            for (let mat1Amount = 0.5; mat1Amount <= remainingAmount - 0.5; mat1Amount += 0.5) {
+                const waterAmount = remainingAmount - mat1Amount;
+
+                // Berechne finale Mischung
+                const totalAmount = stockAmount + mat1Amount + waterAmount;
+                const totalProtein = stockContribution.protein + (material1.protein / 100) * mat1Amount;
+                const totalFat = stockContribution.fat + (material1.fat / 100) * mat1Amount;
+                const totalWater = stockContribution.water + (material1.water / 100) * mat1Amount + waterAmount;
+                const totalBeffe = stockContribution.beffe + (material1.beffe / 100) * mat1Amount;
+                const totalBe = stockContribution.be + (material1.be / 100) * mat1Amount;
+
+                const finalMix = {
+                    protein: (totalProtein / totalAmount) * 100,
+                    fat: (totalFat / totalAmount) * 100,
+                    water: (totalWater / totalAmount) * 100,
+                    beffe: (totalBeffe / totalAmount) * 100,
+                    be: (totalBe / totalAmount) * 100,
+                    amount: totalAmount
+                };
+
+                // Prüfe Leitsätze
+                if (checkLeitsaetze(finalMix, target)) {
+                    const totalCost = (stockAmount * 0) + // Lagerware kostet nichts (bereits bezahlt)
+                                    (material1.price * mat1Amount) +
+                                    (rawMaterials.ice.price * waterAmount);
+
+                    optimizations.push({
+                        type: 'stock-optimization',
+                        strategy: `${stockAmount.toFixed(1)}kg Lagerware + ${mat1Amount.toFixed(1)}kg ${material1.name} + ${waterAmount.toFixed(1)}kg Wasser`,
+                        stockUsed: stockAmount,
+                        additionalMaterials: [
+                            {material: material1.name, amount: mat1Amount},
+                            {material: 'Wasser/Eis', amount: waterAmount}
+                        ],
+                        totalAmount: totalAmount,
+                        finalMix: finalMix,
+                        totalCost: totalCost,
+                        costPerKg: totalCost / totalAmount,
+                        waterPercentage: finalMix.water
+                    });
+                }
+            }
+
+            // Zwei Materialien + Wasser
+            for (let j = i + 1; j < availableMaterials.length; j++) {
+                const material2 = availableMaterials[j];
+
+                for (let mat1Amount = 0.5; mat1Amount <= remainingAmount - 1.0; mat1Amount += 0.5) {
+                    for (let mat2Amount = 0.5; mat2Amount <= remainingAmount - mat1Amount - 0.5; mat2Amount += 0.5) {
+                        const waterAmount = remainingAmount - mat1Amount - mat2Amount;
+
+                        if (waterAmount < 0) continue;
+
+                        // Berechne finale Mischung
+                        const totalAmount = stockAmount + mat1Amount + mat2Amount + waterAmount;
+                        const totalProtein = stockContribution.protein +
+                                           (material1.protein / 100) * mat1Amount +
+                                           (material2.protein / 100) * mat2Amount;
+                        const totalFat = stockContribution.fat +
+                                       (material1.fat / 100) * mat1Amount +
+                                       (material2.fat / 100) * mat2Amount;
+                        const totalWater = stockContribution.water +
+                                         (material1.water / 100) * mat1Amount +
+                                         (material2.water / 100) * mat2Amount +
+                                         waterAmount;
+                        const totalBeffe = stockContribution.beffe +
+                                         (material1.beffe / 100) * mat1Amount +
+                                         (material2.beffe / 100) * mat2Amount;
+                        const totalBe = stockContribution.be +
+                                      (material1.be / 100) * mat1Amount +
+                                      (material2.be / 100) * mat2Amount;
+
+                        const finalMix = {
+                            protein: (totalProtein / totalAmount) * 100,
+                            fat: (totalFat / totalAmount) * 100,
+                            water: (totalWater / totalAmount) * 100,
+                            beffe: (totalBeffe / totalAmount) * 100,
+                            be: (totalBe / totalAmount) * 100,
+                            amount: totalAmount
+                        };
+
+                        // Prüfe Leitsätze
+                        if (checkLeitsaetze(finalMix, target)) {
+                            const totalCost = (stockAmount * 0) + // Lagerware kostet nichts
+                                            (material1.price * mat1Amount) +
+                                            (material2.price * mat2Amount) +
+                                            (rawMaterials.ice.price * waterAmount);
+
+                            optimizations.push({
+                                type: 'stock-optimization',
+                                strategy: `${stockAmount.toFixed(1)}kg Lagerware + ${mat1Amount.toFixed(1)}kg ${material1.name} + ${mat2Amount.toFixed(1)}kg ${material2.name} + ${waterAmount.toFixed(1)}kg Wasser`,
+                                stockUsed: stockAmount,
+                                additionalMaterials: [
+                                    {material: material1.name, amount: mat1Amount},
+                                    {material: material2.name, amount: mat2Amount},
+                                    {material: 'Wasser/Eis', amount: waterAmount}
+                                ],
+                                totalAmount: totalAmount,
+                                finalMix: finalMix,
+                                totalCost: totalCost,
+                                costPerKg: totalCost / totalAmount,
+                                waterPercentage: finalMix.water
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Wenn genug Optimierungen gefunden, early exit
+        if (optimizations.length >= 50) break;
+    }
+
+    console.log(`📦 ${optimizations.length} Lagerware-Optimierungen gefunden`);
+
+    // Sortiere nach: 1. Höchste Lagerware-Nutzung, 2. Niedrigste Kosten
+    optimizations.sort((a, b) => {
+        const stockDiff = b.stockUsed - a.stockUsed;
+        if (Math.abs(stockDiff) > 0.5) return stockDiff;
+        return a.totalCost - b.totalCost;
+    });
+
+    return optimizations.slice(0, 10); // Top 10 Lagerware-Optimierungen
+}
+
+// Rezeptur-Erstellung aus vorhandenen reinen Rohstoffen
+function calculateRawMaterialRecipe(availableRawMaterials, target) {
+    console.log('🔧 Erstelle Rezeptur aus vorhandenen Rohstoffen...');
+    console.log(`🔧 Verfügbare Rohstoffe: ${availableRawMaterials.map(m => `${m.name} (${m.amount}kg)`).join(', ')}`);
+    console.log(`🔧 Ziel: ${target.quantity}kg - ${target.protein}% EW, ${target.fat}% Fett, ${target.water}% Wasser`);
+
+    // ⚠️ WICHTIG: Prüfe ob mindestens ein Rohstoff verfügbare Menge > 0 hat
+    const hasAvailableMaterials = availableRawMaterials.some(m => m.amount > 0);
+    if (!hasAvailableMaterials) {
+        console.log('⚠️ Keine verfügbaren Mengen angegeben (alle Rohstoffe haben 0kg)');
+        hideLoading();
+        showErrorMessage(
+            '⚠️ Keine verfügbare Menge',
+            'Bitte gib bei mindestens einem Rohstoff eine "Verfügbare Menge" größer als 0 kg ein.<br><br>' +
+            '💡 <strong>Tipp:</strong> Wenn du nicht weißt wieviel verfügbar ist, gib einfach 100 kg ein.'
+        );
+        return [];
+    }
+
+    const optimizations = [];
+
+    // Füge Wasser als verfügbares Material hinzu (falls nicht bereits vorhanden)
+    const hasWater = availableRawMaterials.some(m =>
+        m.name === 'Eis/Wasser' ||
+        m.name === 'Wasser/Eis' ||
+        (m.water === 100 && m.protein === 0 && m.fat === 0)
+    );
+
+    const materialsWithWater = hasWater
+        ? availableRawMaterials
+        : [
+            ...availableRawMaterials,
+            { ...rawMaterials.ice, amount: 999999, name: 'Wasser/Eis' } // Unbegrenzt Wasser verfügbar
+          ];
+
+    // Strategie: Teste verschiedene Kombinationen der verfügbaren Rohstoffe
+    // Beginne mit 2-Komponenten-Systemen (Material + Wasser)
+    for (let i = 0; i < availableRawMaterials.length; i++) {
+        const material1 = availableRawMaterials[i];
+
+        // Einzelnes Material + Wasser
+        for (let mat1Amount = 0.5; mat1Amount <= Math.min(material1.amount, target.quantity); mat1Amount += 0.5) {
+            const waterAmount = target.quantity - mat1Amount;
+            if (waterAmount < 0) continue;
+
+            const totalAmount = mat1Amount + waterAmount;
+            const totalProtein = (material1.protein / 100) * mat1Amount;
+            const totalFat = (material1.fat / 100) * mat1Amount;
+            const totalWater = (material1.water / 100) * mat1Amount + waterAmount;
+            const totalBeffe = (material1.beffe / 100) * mat1Amount;
+            const totalBe = (material1.be / 100) * mat1Amount;
+
+            const finalMix = {
+                protein: (totalProtein / totalAmount) * 100,
+                fat: (totalFat / totalAmount) * 100,
+                water: (totalWater / totalAmount) * 100,
+                beffe: (totalBeffe / totalAmount) * 100,
+                be: (totalBe / totalAmount) * 100,
+                amount: totalAmount
+            };
+
+            if (checkLeitsaetze(finalMix, target)) {
+                const totalCost = (material1.price * mat1Amount) + (rawMaterials.ice.price * waterAmount);
+
+                optimizations.push({
+                    type: 'raw-material-recipe',
+                    strategy: `${mat1Amount.toFixed(1)}kg ${material1.name} + ${waterAmount.toFixed(1)}kg Wasser`,
+                    recipe: [
+                        { material: material1.name, amount: mat1Amount },
+                        { material: 'Wasser/Eis', amount: waterAmount }
+                    ],
+                    totalAmount: totalAmount,
+                    finalMix: finalMix,
+                    totalCost: totalCost,
+                    costPerKg: totalCost / totalAmount,
+                    waterPercentage: finalMix.water
+                });
+            }
+        }
+
+        // 2 Materialien + Wasser
+        for (let j = i + 1; j < availableRawMaterials.length; j++) {
+            const material2 = availableRawMaterials[j];
+
+            for (let mat1Amount = 0.5; mat1Amount <= Math.min(material1.amount, target.quantity - 1); mat1Amount += 0.5) {
+                for (let mat2Amount = 0.5; mat2Amount <= Math.min(material2.amount, target.quantity - mat1Amount - 0.5); mat2Amount += 0.5) {
+                    const waterAmount = target.quantity - mat1Amount - mat2Amount;
+                    if (waterAmount < 0) continue;
+
+                    const totalAmount = mat1Amount + mat2Amount + waterAmount;
+                    const totalProtein = (material1.protein / 100) * mat1Amount +
+                                       (material2.protein / 100) * mat2Amount;
+                    const totalFat = (material1.fat / 100) * mat1Amount +
+                                   (material2.fat / 100) * mat2Amount;
+                    const totalWater = (material1.water / 100) * mat1Amount +
+                                     (material2.water / 100) * mat2Amount +
+                                     waterAmount;
+                    const totalBeffe = (material1.beffe / 100) * mat1Amount +
+                                     (material2.beffe / 100) * mat2Amount;
+                    const totalBe = (material1.be / 100) * mat1Amount +
+                                  (material2.be / 100) * mat2Amount;
+
+                    const finalMix = {
+                        protein: (totalProtein / totalAmount) * 100,
+                        fat: (totalFat / totalAmount) * 100,
+                        water: (totalWater / totalAmount) * 100,
+                        beffe: (totalBeffe / totalAmount) * 100,
+                        be: (totalBe / totalAmount) * 100,
+                        amount: totalAmount
+                    };
+
+                    if (checkLeitsaetze(finalMix, target)) {
+                        const totalCost = (material1.price * mat1Amount) +
+                                        (material2.price * mat2Amount) +
+                                        (rawMaterials.ice.price * waterAmount);
+
+                        optimizations.push({
+                            type: 'raw-material-recipe',
+                            strategy: `${mat1Amount.toFixed(1)}kg ${material1.name} + ${mat2Amount.toFixed(1)}kg ${material2.name} + ${waterAmount.toFixed(1)}kg Wasser`,
+                            recipe: [
+                                { material: material1.name, amount: mat1Amount },
+                                { material: material2.name, amount: mat2Amount },
+                                { material: 'Wasser/Eis', amount: waterAmount }
+                            ],
+                            totalAmount: totalAmount,
+                            finalMix: finalMix,
+                            totalCost: totalCost,
+                            costPerKg: totalCost / totalAmount,
+                            waterPercentage: finalMix.water
+                        });
+                    }
+                }
+            }
+
+            // Early exit wenn genug gefunden
+            if (optimizations.length >= 100) break;
+        }
+
+        if (optimizations.length >= 100) break;
+    }
+
+    // 3 Materialien + Wasser (wenn mehr als 2 Rohstoffe vorhanden)
+    if (availableRawMaterials.length >= 3) {
+        for (let i = 0; i < availableRawMaterials.length - 2; i++) {
+            const material1 = availableRawMaterials[i];
+
+            for (let j = i + 1; j < availableRawMaterials.length - 1; j++) {
+                const material2 = availableRawMaterials[j];
+
+                for (let k = j + 1; k < availableRawMaterials.length; k++) {
+                    const material3 = availableRawMaterials[k];
+
+                    // Reduzierte Schrittweite für 3-Material-Kombinationen
+                    for (let mat1Amount = 1; mat1Amount <= Math.min(material1.amount, target.quantity - 2); mat1Amount += 1) {
+                        for (let mat2Amount = 1; mat2Amount <= Math.min(material2.amount, target.quantity - mat1Amount - 1); mat2Amount += 1) {
+                            for (let mat3Amount = 1; mat3Amount <= Math.min(material3.amount, target.quantity - mat1Amount - mat2Amount - 0.5); mat3Amount += 1) {
+                                const waterAmount = target.quantity - mat1Amount - mat2Amount - mat3Amount;
+                                if (waterAmount < 0) continue;
+
+                                const totalAmount = mat1Amount + mat2Amount + mat3Amount + waterAmount;
+                                const totalProtein = (material1.protein / 100) * mat1Amount +
+                                                   (material2.protein / 100) * mat2Amount +
+                                                   (material3.protein / 100) * mat3Amount;
+                                const totalFat = (material1.fat / 100) * mat1Amount +
+                                               (material2.fat / 100) * mat2Amount +
+                                               (material3.fat / 100) * mat3Amount;
+                                const totalWater = (material1.water / 100) * mat1Amount +
+                                                 (material2.water / 100) * mat2Amount +
+                                                 (material3.water / 100) * mat3Amount +
+                                                 waterAmount;
+                                const totalBeffe = (material1.beffe / 100) * mat1Amount +
+                                                 (material2.beffe / 100) * mat2Amount +
+                                                 (material3.beffe / 100) * mat3Amount;
+                                const totalBe = (material1.be / 100) * mat1Amount +
+                                              (material2.be / 100) * mat2Amount +
+                                              (material3.be / 100) * mat3Amount;
+
+                                const finalMix = {
+                                    protein: (totalProtein / totalAmount) * 100,
+                                    fat: (totalFat / totalAmount) * 100,
+                                    water: (totalWater / totalAmount) * 100,
+                                    beffe: (totalBeffe / totalAmount) * 100,
+                                    be: (totalBe / totalAmount) * 100,
+                                    amount: totalAmount
+                                };
+
+                                if (checkLeitsaetze(finalMix, target)) {
+                                    const totalCost = (material1.price * mat1Amount) +
+                                                    (material2.price * mat2Amount) +
+                                                    (material3.price * mat3Amount) +
+                                                    (rawMaterials.ice.price * waterAmount);
+
+                                    optimizations.push({
+                                        type: 'raw-material-recipe',
+                                        strategy: `${mat1Amount.toFixed(1)}kg ${material1.name} + ${mat2Amount.toFixed(1)}kg ${material2.name} + ${mat3Amount.toFixed(1)}kg ${material3.name} + ${waterAmount.toFixed(1)}kg Wasser`,
+                                        recipe: [
+                                            { material: material1.name, amount: mat1Amount },
+                                            { material: material2.name, amount: mat2Amount },
+                                            { material: material3.name, amount: mat3Amount },
+                                            { material: 'Wasser/Eis', amount: waterAmount }
+                                        ],
+                                        totalAmount: totalAmount,
+                                        finalMix: finalMix,
+                                        totalCost: totalCost,
+                                        costPerKg: totalCost / totalAmount,
+                                        waterPercentage: finalMix.water
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    // Early exit
+                    if (optimizations.length >= 100) break;
+                }
+                if (optimizations.length >= 100) break;
+            }
+            if (optimizations.length >= 100) break;
+        }
+    }
+
+    console.log(`🔧 ${optimizations.length} Rezepturen aus vorhandenen Rohstoffen gefunden`);
+
+    // Sortiere nach: 1. Höchster Wasser-Anteil, 2. Niedrigste Kosten
+    optimizations.sort((a, b) => {
+        const waterDiff = b.waterPercentage - a.waterPercentage;
+        if (Math.abs(waterDiff) > 1) return waterDiff;
+        return a.totalCost - b.totalCost;
+    });
+
+    return optimizations.slice(0, 10); // Top 10 Rezepturen
 }
 
 // Kostenbasierte Optimierung mit Standardrezeptur
@@ -1082,14 +1682,13 @@ function checkLeitsaetze(mix, target) {
     const tolerance = {
         protein: -0.3,  // Protein: Mindestens Zielwert (mit 0.3% Toleranz nach unten)
         fat: 5.0,       // ±5% Fett
-        water: 3.0,     // ±3% Wasser
         beffe: -1.0     // BEFFE muss mindestens erreicht werden
     };
 
     // WICHTIG: Protein ist ein MINDEST-Wert, darf nicht unterschritten werden
     const proteinOk = mix.protein >= (target.protein + tolerance.protein);
     const fatOk = Math.abs(mix.fat - target.fat) <= tolerance.fat;
-    const waterOk = Math.abs(mix.water - target.water) <= tolerance.water;
+    // Wasser-Check entfernt - wird durch Wasser/Protein-Verhältnis <= 5.5 abgedeckt
     const beffeOk = mix.beffe >= (target.beffe + tolerance.beffe);
 
     // Lyoner-spezifische Regeln
@@ -1145,10 +1744,10 @@ function checkLeitsaetze(mix, target) {
     // Detaillierte Debug-Ausgaben
     console.log(`🔍 ZIEL: ${target.protein}% Eiweiß (MIN), ${target.fat}% Fett, ${target.water}% Wasser, ${target.beffe}% BEFFE (MIN)`);
     console.log(`🔍 IST:  ${mix.protein.toFixed(1)}% Eiweiß, ${mix.fat.toFixed(1)}% Fett, ${mix.water.toFixed(1)}% Wasser, ${mix.beffe.toFixed(1)}% BEFFE`);
-    console.log(`🔍 CHECK: Protein ${mix.protein.toFixed(1)}% ≥ ${(target.protein + tolerance.protein).toFixed(1)}%: ${proteinOk ? '✅' : '❌'}, Fett ${Math.abs(mix.fat - target.fat).toFixed(1)} (≤${tolerance.fat}): ${fatOk ? '✅' : '❌'}, Wasser ${Math.abs(mix.water - target.water).toFixed(1)} (≤${tolerance.water}): ${waterOk ? '✅' : '❌'}, BEFFE ${mix.beffe.toFixed(1)} ≥ ${(target.beffe + tolerance.beffe).toFixed(1)}: ${beffeOk ? '✅' : '❌'}`);
-    console.log(`🔍 Leitsätze-Check: Protein ${proteinOk}, Fett ${fatOk}, Wasser ${waterOk}, BEFFE ${beffeOk}, Lyoner-Wasser ${lyonerWaterOk}, Lyoner-BEFFE ${lyonerBeffeOk}, Lyoner-BEFFE-im-FE ${lyonerBeffeInFeOk}, Wiener-BEFFE ${wienerBeffeOk}, BE/FE ${beFeOk}, BE-Ziel ${beTargetOk}, Wasser/Protein ${waterProteinOk}, Fett/Protein ${fatProteinOk}`);
+    console.log(`🔍 CHECK: Protein ${mix.protein.toFixed(1)}% ≥ ${(target.protein + tolerance.protein).toFixed(1)}%: ${proteinOk ? '✅' : '❌'}, Fett ${Math.abs(mix.fat - target.fat).toFixed(1)} (≤${tolerance.fat}): ${fatOk ? '✅' : '❌'}, BEFFE ${mix.beffe.toFixed(1)} ≥ ${(target.beffe + tolerance.beffe).toFixed(1)}: ${beffeOk ? '✅' : '❌'}`);
+    console.log(`🔍 Leitsätze-Check: Protein ${proteinOk}, Fett ${fatOk}, BEFFE ${beffeOk}, Lyoner-Wasser ${lyonerWaterOk}, Lyoner-BEFFE ${lyonerBeffeOk}, Lyoner-BEFFE-im-FE ${lyonerBeffeInFeOk}, Wiener-BEFFE ${wienerBeffeOk}, BE/FE ${beFeOk}, BE-Ziel ${beTargetOk}, Wasser/Protein ${waterProteinOk}, Fett/Protein ${fatProteinOk}`);
 
-    return proteinOk && fatOk && waterOk && beffeOk && lyonerWaterOk && lyonerBeffeOk && lyonerBeffeInFeOk && wienerBeffeOk && beFeOk && beTargetOk && waterProteinOk && fatProteinOk;
+    return proteinOk && fatOk && beffeOk && lyonerWaterOk && lyonerBeffeOk && lyonerBeffeInFeOk && wienerBeffeOk && beFeOk && beTargetOk && waterProteinOk && fatProteinOk;
 }
 
 // Intelligente Lösungsvorschläge bei gescheiterten Optimierungen
@@ -1392,7 +1991,6 @@ function analyzeDeviations(theoretical, measured, label = 'Vergleich', includeEx
     // Detaillierte Bewertung aller Parameter
     deviations.push(`• Protein: ${proteinDev.toFixed(2)}% ${getStatusIcon(proteinDev, tolerances.protein)} ${getStatusText(proteinDev, tolerances.protein)}`);
     deviations.push(`• Fett: ${fatDev.toFixed(2)}% ${getStatusIcon(fatDev, tolerances.fat)} ${getStatusText(fatDev, tolerances.fat)}`);
-    deviations.push(`• Wasser: ${waterDev.toFixed(2)}% ${getStatusIcon(waterDev, tolerances.water)} ${getStatusText(waterDev, tolerances.water)}`);
 
     if (theoretical.be !== undefined && measured.be !== undefined) {
         deviations.push(`• BE: ${beDev.toFixed(2)}% ${getStatusIcon(beDev, tolerances.be)} ${getStatusText(beDev, tolerances.be)}`);
@@ -1867,7 +2465,22 @@ function displayOptimizations(optimizations) {
         // Badge und Text basierend auf Optimierungstyp
         let badge, badgeText, materialsText = '';
 
-        if (optimization.type === 'downsize-substitution') {
+        if (optimization.type === 'raw-material-recipe') {
+            badge = 'recipe';
+            badgeText = 'Rezeptur';
+            materialsText = optimization.recipe.map(r =>
+                `<div class="material-addition addition">${r.amount.toFixed(1)}kg ${r.material}</div>`
+            ).join('');
+        } else if (optimization.type === 'stock-optimization') {
+            badge = 'stock';
+            badgeText = 'Lagerware';
+            materialsText = `
+                <div class="material-addition stock">📦 ${optimization.stockUsed.toFixed(1)}kg Lagerware</div>
+                ${optimization.additionalMaterials.map(m =>
+                    `<div class="material-addition addition">+ ${m.amount.toFixed(1)}kg ${m.material}</div>`
+                ).join('')}
+            `;
+        } else if (optimization.type === 'downsize-substitution') {
             badge = 'downsize';
             badgeText = 'Downsizing';
             materialsText = `
@@ -2037,22 +2650,20 @@ function generateSuggestions(current, target) {
         const tolerance = {
             protein: 3.0,    // Erhöht von 2.0 auf 3.0
             fat: 8.0,        // Erhöht von 4.0 auf 8.0
-            water: 10.0,     // Erhöht von 5.0 auf 10.0
             beffe: -3.0      // Erhöht von -2.0 auf -3.0
         };
         
         const proteinOk = Math.abs(mix.protein - target.protein) <= tolerance.protein;
         const fatOk = Math.abs(mix.fat - target.fat) <= tolerance.fat;
-        const waterOk = Math.abs(mix.water - target.water) <= tolerance.water;
         const beffeOk = mix.beffe >= (target.beffe + tolerance.beffe);
-        
+
         console.log(`\n🧪 Test ${material.name}:`);
         console.log(`Mischung: ${mix.protein.toFixed(1)}% Eiweiß, ${mix.fat.toFixed(1)}% Fett, ${mix.water.toFixed(1)}% Wasser, ${mix.beffe.toFixed(1)}% BEFFE`);
         console.log(`Ziel: ${target.protein}% Eiweiß, ${target.fat}% Fett, ${target.water}% Wasser, ${target.beffe}% BEFFE`);
-        console.log(`Diff: Eiweiß=${Math.abs(mix.protein - target.protein).toFixed(1)} (${tolerance.protein}), Fett=${Math.abs(mix.fat - target.fat).toFixed(1)} (${tolerance.fat}), Wasser=${Math.abs(mix.water - target.water).toFixed(1)} (${tolerance.water}), BEFFE=${(mix.beffe - target.beffe).toFixed(1)} (${tolerance.beffe})`);
-        console.log(`Protein OK: ${proteinOk}, Fett OK: ${fatOk}, Wasser OK: ${waterOk}, BEFFE OK: ${beffeOk}`);
-        
-        if (proteinOk && fatOk && waterOk && beffeOk) {
+        console.log(`Diff: Eiweiß=${Math.abs(mix.protein - target.protein).toFixed(1)} (${tolerance.protein}), Fett=${Math.abs(mix.fat - target.fat).toFixed(1)} (${tolerance.fat}), BEFFE=${(mix.beffe - target.beffe).toFixed(1)} (${tolerance.beffe})`);
+        console.log(`Protein OK: ${proteinOk}, Fett OK: ${fatOk}, BEFFE OK: ${beffeOk}`);
+
+        if (proteinOk && fatOk && beffeOk) {
             const totalCost = (current.price * current.amount) + (material.price * neededAmount);
             
             // Prüfe ob Wasser-Spielraum vorhanden ist für Kostensenkung
@@ -2135,13 +2746,12 @@ function calculateWaterOptimization(current, material, target, baseAmount) {
     };
     
     // Prüfe ob optimierte Mischung noch legal ist
-    const tolerance = { protein: 3.0, fat: 8.0, water: 10.0, beffe: -3.0 };
+    const tolerance = { protein: 3.0, fat: 8.0, beffe: -3.0 };
     const proteinOk = Math.abs(optimizedMix.protein - target.protein) <= tolerance.protein;
     const fatOk = Math.abs(optimizedMix.fat - target.fat) <= tolerance.fat;
-    const waterOk = Math.abs(optimizedMix.water - target.water) <= tolerance.water;
     const beffeOk = optimizedMix.beffe >= (target.beffe + tolerance.beffe);
-    
-    if (proteinOk && fatOk && waterOk && beffeOk) {
+
+    if (proteinOk && fatOk && beffeOk) {
         const optimizedCost = (current.price * current.amount) + (material.price * optimizedMaterialAmount) + (waterMaterial.price * maxWaterAmount);
         const savings = ((current.price * current.amount) + (material.price * baseAmount)) - optimizedCost;
         
@@ -2196,13 +2806,12 @@ function generateMultiMaterialSuggestions(current, target) {
                 ], target);
                 
                 // Prüfe Toleranzen
-                const tolerance = { protein: 3.0, fat: 8.0, water: 10.0, beffe: -3.0 };
+                const tolerance = { protein: 3.0, fat: 8.0, beffe: -3.0 };
                 const proteinOk = Math.abs(mix.protein - target.protein) <= tolerance.protein;
                 const fatOk = Math.abs(mix.fat - target.fat) <= tolerance.fat;
-                const waterOk = Math.abs(mix.water - target.water) <= tolerance.water;
                 const beffeOk = mix.beffe >= (target.beffe + tolerance.beffe);
-                
-                if (proteinOk && fatOk && waterOk && beffeOk) {
+
+                if (proteinOk && fatOk && beffeOk) {
                     const totalCost = (current.price * current.amount) + 
                                     (material1.price * amount1) + 
                                     (material2.price * amount2);
@@ -2251,13 +2860,12 @@ function generateMultiMaterialSuggestions(current, target) {
                 {material: material3, amount: amount3}
             ], target);
             
-            const tolerance = { protein: 3.0, fat: 8.0, water: 10.0, beffe: -3.0 };
+            const tolerance = { protein: 3.0, fat: 8.0, beffe: -3.0 };
             const proteinOk = Math.abs(mix.protein - target.protein) <= tolerance.protein;
             const fatOk = Math.abs(mix.fat - target.fat) <= tolerance.fat;
-            const waterOk = Math.abs(mix.water - target.water) <= tolerance.water;
             const beffeOk = mix.beffe >= (target.beffe + tolerance.beffe);
-            
-            if (proteinOk && fatOk && waterOk && beffeOk) {
+
+            if (proteinOk && fatOk && beffeOk) {
                 const totalCost = (current.price * current.amount) + 
                                 (material1.price * amount1) + 
                                 (material2.price * amount2) + 
@@ -2906,69 +3514,123 @@ function displayFinalRecipe(suggestion) {
     const currentMaterials = getAllMaterials();
     const current = calculateCurrentMixture(currentMaterials);
     const target = getTargetSpecs();
-    
+
     console.log('🔍 displayFinalRecipe - suggestion:', suggestion);
-    
-    const currentRatio = current.amount / suggestion.totalAmount;
-    
-    let recipeContent = `
-        <div class="recipe-item">
-            <h4>${current.name}</h4>
-            <div class="detail-value">${current.amount.toFixed(0)} kg</div>
-            <div class="detail-label">(${(currentRatio * 100).toFixed(1)}%)</div>
-        </div>
-    `;
-    
-    // Neue Optimierungslogik - Wasser-Zusatz
-    if (suggestion.waterAmount && suggestion.waterAmount > 0) {
-        const waterRatio = suggestion.waterAmount / suggestion.totalAmount;
-        recipeContent += `
-            <div class="recipe-item">
-                <h4>Wasser/Eiswasser</h4>
-                <div class="detail-value">${suggestion.waterAmount.toFixed(0)} kg</div>
-                <div class="detail-label">(${(waterRatio * 100).toFixed(1)}%)</div>
-            </div>
-        `;
-    }
-    
-    // Anpassungen aus Optimierung
-    if (suggestion.additionalMaterials && suggestion.additionalMaterials.length > 0) {
-        suggestion.additionalMaterials.forEach(material => {
-            const ratio = material.amount / suggestion.totalAmount;
+
+    let recipeContent = '';
+
+    // NEUE LOGIK: Raw-Material-Recipe (erstellt von Grund auf)
+    if (suggestion.type === 'raw-material-recipe' && suggestion.recipe) {
+        suggestion.recipe.forEach(item => {
+            const ratio = item.amount / suggestion.totalAmount;
             recipeContent += `
                 <div class="recipe-item">
-                    <h4>${material.material.name}</h4>
-                    <div class="detail-value">${material.amount.toFixed(0)} kg</div>
+                    <h4>${item.material}</h4>
+                    <div class="detail-value">${item.amount.toFixed(1)} kg</div>
                     <div class="detail-label">(${(ratio * 100).toFixed(1)}%)</div>
                 </div>
             `;
         });
-    }
-    
-    // Alte Logik für Rückwärtskompatibilität
-    if (suggestion.isMultiMaterial) {
-        suggestion.materials.forEach(material => {
-            const ratio = material.amount / suggestion.totalAmount;
+    } else if (suggestion.type === 'stock-optimization') {
+        // Lagerware-Optimierung
+        recipeContent += `
+            <div class="recipe-item">
+                <h4>📦 Lagerware</h4>
+                <div class="detail-value">${suggestion.stockUsed.toFixed(1)} kg</div>
+                <div class="detail-label">(${(suggestion.stockUsed / suggestion.totalAmount * 100).toFixed(1)}%)</div>
+            </div>
+        `;
+        if (suggestion.additionalMaterials) {
+            suggestion.additionalMaterials.forEach(mat => {
+                const ratio = mat.amount / suggestion.totalAmount;
+                recipeContent += `
+                    <div class="recipe-item">
+                        <h4>${mat.material}</h4>
+                        <div class="detail-value">${mat.amount.toFixed(1)} kg</div>
+                        <div class="detail-label">(${(ratio * 100).toFixed(1)}%)</div>
+                    </div>
+                `;
+            });
+        }
+    } else if (suggestion.type === 'cost-optimized' && suggestion.materials) {
+        // Kostenoptimierte Rezeptur
+        suggestion.materials.forEach(mat => {
+            const ratio = mat.amount / suggestion.totalAmount;
             recipeContent += `
                 <div class="recipe-item">
-                    <h4>${material.material.name}</h4>
-                    <div class="detail-value">${material.amount.toFixed(0)} kg</div>
+                    <h4>${mat.name}</h4>
+                    <div class="detail-value">${mat.amount.toFixed(1)} kg</div>
                     <div class="detail-label">(${(ratio * 100).toFixed(1)}%)</div>
                 </div>
             `;
         });
-    } else if (suggestion.material && suggestion.amount) {
-        // Alte Single-Material Logik
-        const materialRatio = suggestion.amount / suggestion.totalAmount;
-        recipeContent += `
-            <div class="recipe-item">
-                <h4>${suggestion.material.name}</h4>
-                <div class="detail-value">${suggestion.amount.toFixed(0)} kg</div>
-                <div class="detail-label">(${(materialRatio * 100).toFixed(1)}%)</div>
-            </div>
-        `;
+    } else {
+        // ALTE LOGIK: Vorhandenes Material + Zusätze
+        if (current.amount > 0) {
+            const currentRatio = current.amount / suggestion.totalAmount;
+            recipeContent += `
+                <div class="recipe-item">
+                    <h4>${current.name}</h4>
+                    <div class="detail-value">${current.amount.toFixed(0)} kg</div>
+                    <div class="detail-label">(${(currentRatio * 100).toFixed(1)}%)</div>
+                </div>
+            `;
+        }
+
+        // Wasser-Zusatz
+        if (suggestion.waterAmount && suggestion.waterAmount > 0) {
+            const waterRatio = suggestion.waterAmount / suggestion.totalAmount;
+            recipeContent += `
+                <div class="recipe-item">
+                    <h4>Wasser/Eiswasser</h4>
+                    <div class="detail-value">${suggestion.waterAmount.toFixed(0)} kg</div>
+                    <div class="detail-label">(${(waterRatio * 100).toFixed(1)}%)</div>
+                </div>
+            `;
+        }
+
+        // Anpassungen aus Optimierung
+        if (suggestion.additionalMaterials && suggestion.additionalMaterials.length > 0) {
+            suggestion.additionalMaterials.forEach(material => {
+                const ratio = material.amount / suggestion.totalAmount;
+                recipeContent += `
+                    <div class="recipe-item">
+                        <h4>${material.material.name}</h4>
+                        <div class="detail-value">${material.amount.toFixed(0)} kg</div>
+                        <div class="detail-label">(${(ratio * 100).toFixed(1)}%)</div>
+                    </div>
+                `;
+            });
+        }
+
+        // Multi-Material
+        if (suggestion.isMultiMaterial) {
+            suggestion.materials.forEach(material => {
+                const ratio = material.amount / suggestion.totalAmount;
+                recipeContent += `
+                    <div class="recipe-item">
+                        <h4>${material.material.name}</h4>
+                        <div class="detail-value">${material.amount.toFixed(0)} kg</div>
+                        <div class="detail-label">(${(ratio * 100).toFixed(1)}%)</div>
+                    </div>
+                `;
+            });
+        } else if (suggestion.material && suggestion.amount) {
+            // Single-Material
+            const materialRatio = suggestion.amount / suggestion.totalAmount;
+            recipeContent += `
+                <div class="recipe-item">
+                    <h4>${suggestion.material.name}</h4>
+                    <div class="detail-value">${suggestion.amount.toFixed(0)} kg</div>
+                    <div class="detail-label">(${(materialRatio * 100).toFixed(1)}%)</div>
+                </div>
+            `;
+        }
     }
-    
+
+    // Gesamtkosten (unterstützt beide: cost und totalCost)
+    const cost = suggestion.totalCost || suggestion.cost || 0;
+
     recipeContent += `
         <div class="recipe-item">
             <h4>Gesamtmenge</h4>
@@ -2987,14 +3649,14 @@ function displayFinalRecipe(suggestion) {
         </div>
         <div class="recipe-item">
             <h4>Gesamtkosten</h4>
-            <div class="detail-value">${suggestion.cost.toFixed(2)} €</div>
+            <div class="detail-value">${cost.toFixed(2)} €</div>
             <div class="detail-label">(${suggestion.costPerKg.toFixed(2)} €/kg)</div>
         </div>
     `;
-    
+
     const recipeDetails = document.getElementById('recipe-details');
     recipeDetails.innerHTML = recipeContent;
-    
+
     document.getElementById('final-recipe').style.display = 'block';
 }
 
@@ -3004,106 +3666,188 @@ function loadRecipeIntoMaterials() {
 
     console.log('📋 Lade Rezeptur in Rohstoff-Felder...', selectedSuggestion);
 
-    // Prüfe ob es eine Kostenoptimierung mit materials Array ist
+    let materialsToLoad = [];
+
+    // Hole Material-Liste je nach Typ
     if (selectedSuggestion.type === 'cost-optimized' && selectedSuggestion.materials) {
-        // Lösche alle bestehenden Rohstoff-Karten
-        const container = document.getElementById('materials-container');
-        container.innerHTML = '';
-
-        // Setze materialCount zurück
-        materialCount = 0;
-
-        // Erstelle für jedes Material eine neue Karte
-        selectedSuggestion.materials.forEach((mat, idx) => {
-            const newIndex = materialCount;
-            const material = rawMaterials[mat.key];
-
-            const materialHTML = `
-                <article class="material-card" data-index="${newIndex}">
-                    <div class="material-header">
-                        <h3>Rohstoff ${newIndex + 1}: ${mat.name}</h3>
-                        <button type="button" class="remove-material-btn" onclick="removeMaterial(${newIndex})" aria-label="Rohstoff ${newIndex + 1} entfernen">
-                            <span aria-hidden="true">❌</span>
-                        </button>
-                    </div>
-                    <div class="input-grid">
-                        <div class="input-group">
-                            <label for="current-type-${newIndex}">Rohstofftyp</label>
-                            <select id="current-type-${newIndex}" onchange="updateCurrentDefaults(${newIndex}); updateTotalMixture()">
-                                <option value="s3" ${mat.key === 's3' ? 'selected' : ''}>S III</option>
-                                <option value="s8" ${mat.key === 's8' ? 'selected' : ''}>S VIII</option>
-                                <option value="s9" ${mat.key === 's9' ? 'selected' : ''}>S IX</option>
-                                <option value="ice" ${mat.key === 'ice' ? 'selected' : ''}>Eis/Wasser</option>
-                                <option value="schulter" ${mat.key === 'schulter' ? 'selected' : ''}>Schulter schier</option>
-                                <option value="backen" ${mat.key === 'backen' ? 'selected' : ''}>Backen</option>
-                                <option value="braet" ${mat.key === 'braet' ? 'selected' : ''}>Fertiges Brät (Validierung)</option>
-                                <option value="gewuerze" ${mat.key === 'gewuerze' ? 'selected' : ''}>Gewürze & Zusatzstoffe</option>
-                                <option value="custom" ${mat.key === 'custom' ? 'selected' : ''}>Benutzerdefiniert</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="current-be-${newIndex}">BE - Bindegewebseiweiß (%)</label>
-                            <input type="number" id="current-be-${newIndex}" value="${material.be.toFixed(1)}" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
-                        </div>
-                        <div class="input-group">
-                            <label for="current-fat-${newIndex}">Fett (%)</label>
-                            <input type="number" id="current-fat-${newIndex}" value="${material.fat.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
-                        </div>
-                        <div class="input-group">
-                            <label for="current-water-${newIndex}">Wasser (%)</label>
-                            <input type="number" id="current-water-${newIndex}" value="${material.water.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
-                        </div>
-                        <div class="input-group">
-                            <label for="current-protein-${newIndex}">Eiweiß (%)</label>
-                            <input type="number" id="current-protein-${newIndex}" value="${material.protein.toFixed(1)}" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
-                        </div>
-                        <div class="input-group">
-                            <label for="current-beffe-manual-${newIndex}">BEFFE (%)</label>
-                            <input type="number" id="current-beffe-manual-${newIndex}" value="${material.beffe.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
-                        </div>
-                        <div class="input-group">
-                            <label for="current-amount-${newIndex}">Verfügbare Menge (kg)</label>
-                            <input type="number" id="current-amount-${newIndex}" value="${mat.amount.toFixed(1)}" step="10" min="0" oninput="updateTotalMixture()">
-                        </div>
-                    </div>
-                </article>
-            `;
-
-            container.insertAdjacentHTML('beforeend', materialHTML);
-            materialCount++;
+        // Cost-optimized: hat materials Array mit {name, key, amount, price}
+        materialsToLoad = selectedSuggestion.materials.map(mat => ({
+            name: mat.name,
+            key: mat.key,
+            amount: mat.amount
+        }));
+    } else if (selectedSuggestion.type === 'raw-material-recipe' && selectedSuggestion.recipe) {
+        // Raw-material-recipe: hat recipe Array mit {material: string, amount: number}
+        materialsToLoad = selectedSuggestion.recipe.map(item => {
+            const key = findRawMaterialKeyByName(item.material);
+            return {
+                name: item.material,
+                key: key,
+                amount: item.amount
+            };
         });
-
-        // Aktualisiere Remove-Buttons und Gesamtmischung
-        updateRemoveButtons();
-        updateTotalMixture();
-
-        // Scrolle zu den Rohstoff-Feldern
-        document.querySelector('.materials-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        // Zeige Bestätigung
-        setTimeout(() => {
-            alert(`✅ Rezeptur in Rohstoff-Felder geladen!\n\n` +
-                  `${selectedSuggestion.materials.length} Rohstoffe wurden übernommen.\n` +
-                  `Du kannst die Werte jetzt noch anpassen.`);
-        }, 500);
-
-        return true;
+    } else if (selectedSuggestion.type === 'stock-optimization' && selectedSuggestion.additionalMaterials) {
+        // Stock-optimization: hat additionalMaterials Array mit {material: string, amount: number}
+        materialsToLoad = selectedSuggestion.additionalMaterials.map(item => {
+            const key = findRawMaterialKeyByName(item.material);
+            return {
+                name: item.material,
+                key: key,
+                amount: item.amount
+            };
+        });
+    } else {
+        console.warn('Unbekannter Rezeptur-Typ oder fehlende Daten');
+        return false;
     }
 
-    return false;
+    if (materialsToLoad.length === 0) {
+        console.warn('Keine Materialien zum Laden gefunden');
+        return false;
+    }
+
+    // WICHTIG: Speichere die aktuellen Benutzereingaben bevor wir die Felder löschen
+    const currentUserInputs = {};
+    const existingMaterials = document.querySelectorAll('.material-card');
+    existingMaterials.forEach(card => {
+        const index = parseInt(card.dataset.index);
+        const typeSelect = document.getElementById(`current-type-${index}`);
+        if (typeSelect) {
+            const key = typeSelect.value;
+            currentUserInputs[key] = {
+                be: parseFloat(document.getElementById(`current-be-${index}`)?.value || 0),
+                fat: parseFloat(document.getElementById(`current-fat-${index}`)?.value || 0),
+                water: parseFloat(document.getElementById(`current-water-${index}`)?.value || 0),
+                protein: parseFloat(document.getElementById(`current-protein-${index}`)?.value || 0),
+                beffe: parseFloat(document.getElementById(`current-beffe-manual-${index}`)?.value || 0),
+                amount: parseFloat(document.getElementById(`current-amount-${index}`)?.value || 0)
+            };
+        }
+    });
+
+    // Lösche alle bestehenden Rohstoff-Karten
+    const container = document.getElementById('materials-container');
+    container.innerHTML = '';
+
+    // Setze materialCount zurück
+    materialCount = 0;
+
+    // Erstelle für jedes Material eine neue Karte
+    materialsToLoad.forEach((mat) => {
+        const newIndex = materialCount;
+        const material = rawMaterials[mat.key];
+
+        if (!material) {
+            console.error(`Material mit key "${mat.key}" nicht gefunden`);
+            return;
+        }
+
+        // Verwende Benutzereingaben falls vorhanden, sonst Standard-Werte
+        const userInput = currentUserInputs[mat.key];
+        const values = userInput || material;
+
+        const materialHTML = `
+            <article class="material-card" data-index="${newIndex}">
+                <div class="material-header">
+                    <h3>Rohstoff ${newIndex + 1}: ${mat.name}</h3>
+                    <button type="button" class="remove-material-btn" onclick="removeMaterial(${newIndex})" aria-label="Rohstoff ${newIndex + 1} entfernen">
+                        <span aria-hidden="true">❌</span>
+                    </button>
+                </div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="current-type-${newIndex}">Rohstofftyp</label>
+                        <select id="current-type-${newIndex}" onchange="updateCurrentDefaults(${newIndex}); updateTotalMixture()">
+                            <option value="s3" ${mat.key === 's3' ? 'selected' : ''}>S III</option>
+                            <option value="s8" ${mat.key === 's8' ? 'selected' : ''}>S VIII</option>
+                            <option value="s9" ${mat.key === 's9' ? 'selected' : ''}>S IX</option>
+                            <option value="ice" ${mat.key === 'ice' ? 'selected' : ''}>Eis/Wasser</option>
+                            <option value="schulter" ${mat.key === 'schulter' ? 'selected' : ''}>Schulter schier</option>
+                            <option value="backen" ${mat.key === 'backen' ? 'selected' : ''}>Backen</option>
+                            <option value="braet" ${mat.key === 'braet' ? 'selected' : ''}>Fertiges Brät (Validierung)</option>
+                            <option value="gewuerze" ${mat.key === 'gewuerze' ? 'selected' : ''}>Gewürze & Zusatzstoffe</option>
+                            <option value="custom" ${mat.key === 'custom' ? 'selected' : ''}>Benutzerdefiniert</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="current-be-${newIndex}">BE - Bindegewebseiweiß (%)</label>
+                        <input type="number" id="current-be-${newIndex}" value="${values.be.toFixed(1)}" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                    </div>
+                    <div class="input-group">
+                        <label for="current-fat-${newIndex}">Fett (%)</label>
+                        <input type="number" id="current-fat-${newIndex}" value="${values.fat.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
+                    </div>
+                    <div class="input-group">
+                        <label for="current-water-${newIndex}">Wasser (%)</label>
+                        <input type="number" id="current-water-${newIndex}" value="${values.water.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
+                    </div>
+                    <div class="input-group">
+                        <label for="current-protein-${newIndex}">Eiweiß (%)</label>
+                        <input type="number" id="current-protein-${newIndex}" value="${values.protein.toFixed(1)}" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                    </div>
+                    <div class="input-group">
+                        <label for="current-beffe-manual-${newIndex}">BEFFE (%)</label>
+                        <input type="number" id="current-beffe-manual-${newIndex}" value="${values.beffe.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
+                    </div>
+                    <div class="input-group">
+                        <label for="current-amount-${newIndex}">Verfügbare Menge (kg)</label>
+                        <input type="number" id="current-amount-${newIndex}" value="${mat.amount.toFixed(1)}" step="10" min="0" oninput="updateTotalMixture()">
+                    </div>
+                </div>
+            </article>
+        `;
+
+        container.insertAdjacentHTML('beforeend', materialHTML);
+        materialCount++;
+    });
+
+    // Aktualisiere Remove-Buttons und Gesamtmischung
+    updateRemoveButtons();
+    updateTotalMixture();
+
+    // Scrolle zu den Rohstoff-Feldern
+    document.querySelector('.materials-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Zeige Bestätigung
+    setTimeout(() => {
+        alert(`✅ Rezeptur in Rohstoff-Felder geladen!\n\n` +
+              `${materialsToLoad.length} Rohstoffe wurden übernommen.\n` +
+              `Du kannst die Werte jetzt noch anpassen.`);
+    }, 500);
+
+    return true;
+}
+
+// Hilfsfunktion: Finde rawMaterials key anhand des Material-Namens
+function findRawMaterialKeyByName(name) {
+    // Mapping von Namen zu keys
+    const nameToKey = {
+        'S III': 's3',
+        'S VIII': 's8',
+        'S IX': 's9',
+        'Wasser/Eis': 'ice',
+        'Schulter schier': 'schulter',
+        'Backen': 'backen',
+        'Fertiges Brät': 'braet',
+        'Gewürze & Zusatzstoffe': 'gewuerze'
+    };
+
+    return nameToKey[name] || 'custom';
 }
 
 // Rezeptur verwenden (überarbeitet für neue Optimierungsdaten)
 function useRecipe() {
     if (!selectedSuggestion) return;
 
-    // Für Kostenoptimierung: Lade Rezeptur in Felder
-    if (selectedSuggestion.type === 'cost-optimized') {
+    // Für Rezepturen die von Grund auf erstellt werden: Lade in Felder
+    if (selectedSuggestion.type === 'cost-optimized' ||
+        selectedSuggestion.type === 'raw-material-recipe' ||
+        selectedSuggestion.type === 'stock-optimization') {
         loadRecipeIntoMaterials();
         return;
     }
 
-    // Alte Logik für andere Optimierungstypen
+    // Alte Logik für andere Optimierungstypen (Material-Zusätze zu vorhandenem Brät)
     const currentMaterials = getAllMaterials();
     const current = calculateCurrentMixture(currentMaterials);
     const target = getTargetSpecs();
@@ -3127,12 +3871,13 @@ function useRecipe() {
     }
 
     const finalMix = selectedSuggestion.finalMix || selectedSuggestion.mix;
+    const cost = selectedSuggestion.totalCost || selectedSuggestion.cost || 0;
 
     alert(`✅ Rezeptur übernommen!\n\n` +
           `Basis: ${current.name}: ${current.amount.toFixed(0)} kg\n` +
           materialText +
           `= ${selectedSuggestion.totalAmount.toFixed(0)} kg ${document.getElementById('target-product').selectedOptions[0].text}\n\n` +
-          `💰 Gesamtkosten: ${selectedSuggestion.cost.toFixed(2)} €\n` +
+          `💰 Gesamtkosten: ${cost.toFixed(2)} €\n` +
           `💰 Pro kg: ${selectedSuggestion.costPerKg.toFixed(2)} €/kg\n` +
           `Ergebnis: ${finalMix.protein.toFixed(1)}% Eiweiß, ${finalMix.fat.toFixed(1)}% Fett, ${finalMix.water.toFixed(1)}% Wasser`);
 }
@@ -3146,7 +3891,68 @@ function showError(title, message) {
 }
 
 function hideError() {
-    document.getElementById('error-message').style.display = 'none';
+    const errorDiv = document.getElementById('error-message');
+    errorDiv.classList.remove('show');
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 300);
+}
+
+// Neue verbesserte Message-Funktionen
+function showSuccess(message) {
+    const successDiv = document.getElementById('success-message');
+    successDiv.textContent = message;
+    successDiv.style.display = 'flex';
+    successDiv.classList.add('show');
+    
+    // Auto-hide nach 5 Sekunden
+    setTimeout(() => {
+        hideSuccess();
+    }, 5000);
+}
+
+function hideSuccess() {
+    const successDiv = document.getElementById('success-message');
+    successDiv.classList.remove('show');
+    setTimeout(() => {
+        successDiv.style.display = 'none';
+    }, 300);
+}
+
+function showErrorMessage(title, message) {
+    const errorDiv = document.getElementById('error-message');
+    errorDiv.innerHTML = `<strong>${title}:</strong> ${message}`;
+    errorDiv.style.display = 'flex';
+    errorDiv.classList.add('show');
+    document.getElementById('suggestions-section').style.display = 'none';
+    
+    // Auto-hide nach 10 Sekunden
+    setTimeout(() => {
+        hideError();
+    }, 10000);
+}
+
+// Loading Overlay Steuerung
+function showLoading(title = 'Berechnung läuft...', message = 'Optimale Rezeptur wird ermittelt') {
+    const overlay = document.getElementById('loading-overlay');
+    document.getElementById('loading-title').textContent = title;
+    document.getElementById('loading-message').textContent = message;
+    overlay.classList.add('active');
+    
+    // Buttons deaktivieren
+    document.querySelectorAll('.calculate-btn').forEach(btn => {
+        btn.disabled = true;
+    });
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    overlay.classList.remove('active');
+    
+    // Buttons wieder aktivieren
+    document.querySelectorAll('.calculate-btn').forEach(btn => {
+        btn.disabled = false;
+    });
 }
 
 // PDF-Export-Funktion
@@ -3822,11 +4628,23 @@ function deleteMaterial(materialKey) {
 }
 
 function saveSettings() {
+    // Toleranzen aus den Input-Feldern lesen
+    const toleranceProtein = parseFloat(document.getElementById('tolerance-protein').value);
+    const toleranceFat = parseFloat(document.getElementById('tolerance-fat').value);
+    const toleranceBeffe = parseFloat(document.getElementById('tolerance-beffe').value);
+    const spiceFactor = parseFloat(document.getElementById('spice-factor').value);
+
     const settings = {
         rawMaterials: rawMaterials,
-        productSpecs: productSpecs
+        productSpecs: productSpecs,
+        tolerances: {
+            protein: toleranceProtein,
+            fat: toleranceFat,
+            beffe: toleranceBeffe,
+            spiceFactor: spiceFactor
+        }
     };
-    
+
     localStorage.setItem("fleischAppSettings", JSON.stringify(settings));
     alert("Einstellungen gespeichert! ✅");
     closeSettingsModal();
@@ -3836,17 +4654,30 @@ function loadSettingsFromStorage() {
     const saved = localStorage.getItem("fleischAppSettings");
     if (saved) {
         const settings = JSON.parse(saved);
-        
+
         if (settings.rawMaterials) {
             Object.entries(settings.rawMaterials).forEach(([key, material]) => {
                 rawMaterials[key] = material;
             });
         }
-        
+
         if (settings.productSpecs) {
             Object.entries(settings.productSpecs).forEach(([key, product]) => {
                 productSpecs[key] = product;
             });
+        }
+
+        // Toleranzen laden und in die Input-Felder setzen
+        if (settings.tolerances) {
+            const toleranceProteinInput = document.getElementById('tolerance-protein');
+            const toleranceFatInput = document.getElementById('tolerance-fat');
+            const toleranceBeffeInput = document.getElementById('tolerance-beffe');
+            const spiceFactorInput = document.getElementById('spice-factor');
+
+            if (toleranceProteinInput) toleranceProteinInput.value = settings.tolerances.protein;
+            if (toleranceFatInput) toleranceFatInput.value = settings.tolerances.fat;
+            if (toleranceBeffeInput) toleranceBeffeInput.value = settings.tolerances.beffe;
+            if (spiceFactorInput) spiceFactorInput.value = settings.tolerances.spiceFactor;
         }
     }
 }
@@ -4009,11 +4840,14 @@ function updateProductDropdown() {
 
 function loadAdvancedSettings() {
     const settings = JSON.parse(localStorage.getItem('fleischAppSettings')) || {};
-    
-    document.getElementById('tolerance-protein').value = settings.toleranceProtein || 0.5;
-    document.getElementById('tolerance-fat').value = settings.toleranceFat || 1.0;
-    document.getElementById('tolerance-water').value = settings.toleranceWater || 2.0;
-    document.getElementById('tolerance-beffe').value = settings.toleranceBeffe || 0.5;
+
+    // Toleranzen aus dem neuen nested Format laden
+    const tolerances = settings.tolerances || {};
+
+    document.getElementById('tolerance-protein').value = tolerances.protein || 0.5;
+    document.getElementById('tolerance-fat').value = tolerances.fat || 1.0;
+    document.getElementById('tolerance-beffe').value = tolerances.beffe || 0.5;
+    document.getElementById('spice-factor').value = tolerances.spiceFactor || 3.46;
 }
 
 // Notification-System
@@ -4217,7 +5051,6 @@ function exportSettings() {
         productSpecs: productSpecs,
         toleranceProtein: parseFloat(document.getElementById('tolerance-protein')?.value || 0.5),
         toleranceFat: parseFloat(document.getElementById('tolerance-fat')?.value || 1.0),
-        toleranceWater: parseFloat(document.getElementById('tolerance-water')?.value || 2.0),
         toleranceBeffe: parseFloat(document.getElementById('tolerance-beffe')?.value || 0.5),
         exportDate: new Date().toISOString(),
         appVersion: "1.0.0"
@@ -4299,10 +5132,1293 @@ function updateAllMaterialDropdowns() {
     });
 }
 
-// Modal schließen bei Escape
+// Globale Keyboard Shortcuts
 document.addEventListener("keydown", function(e) {
+    // ESC: Modal schließen
     if (e.key === "Escape") {
         closeSettingsModal();
+        closeEditModal();
+    }
+    
+    // STRG/CMD + Enter: Optimierung starten
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        const loadingActive = document.getElementById('loading-overlay').classList.contains('active');
+        if (!loadingActive) {
+            calculateOptimization();
+            showNotification('⚡ Optimierung gestartet (Strg+Enter)');
+        }
+    }
+    
+    // STRG/CMD + S: Einstellungen speichern
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        const modal = document.getElementById('settingsModal');
+        if (modal && modal.style.display !== 'none') {
+            saveSettings();
+            showNotification('💾 Einstellungen gespeichert (Strg+S)');
+        }
+    }
+    
+    // STRG/CMD + E: PDF exportieren (wenn Ergebnisse vorhanden)
+    if ((e.ctrlKey || e.metaKey) && e.key === "e") {
+        e.preventDefault();
+        const recipeDiv = document.getElementById('final-recipe');
+        if (recipeDiv && recipeDiv.style.display !== 'none') {
+            exportToPDF();
+            showNotification('📄 PDF wird exportiert (Strg+E)');
+        }
+    }
+    
+    // STRG/CMD + M: Rohstoff hinzufügen
+    if ((e.ctrlKey || e.metaKey) && e.key === "m") {
+        e.preventDefault();
+        addMaterial();
+        showNotification('➕ Neuer Rohstoff hinzugefügt (Strg+M)');
+    }
+    
+    // STRG/CMD + K: Kostenoptimierung starten
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        const loadingActive = document.getElementById('loading-overlay').classList.contains('active');
+        if (!loadingActive) {
+            calculateCostOptimizationUI();
+            showNotification('💰 Kostenoptimierung gestartet (Strg+K)');
+        }
+    }
+    
+    // STRG/CMD + , : Einstellungen öffnen
+    if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+        e.preventDefault();
+        openSettingsModal();
+        showNotification('⚙️ Einstellungen geöffnet (Strg+,)');
+    }
+    
+    // ? : Keyboard Shortcuts Hilfe anzeigen
+    if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        toggleKeyboardHelp();
     }
 });
 
+// Keyboard Shortcuts Hilfe
+function toggleKeyboardHelp() {
+    const helpHtml = `
+        <div class="edit-modal-overlay" onclick="closeEditModal()">
+            <div class="edit-modal-content" onclick="event.stopPropagation()" style="max-width: 600px;">
+                <div class="edit-modal-header">
+                    <h3>⌨️ Tastatur-Shortcuts</h3>
+                    <button onclick="closeEditModal()" class="modal-close-btn">✕</button>
+                </div>
+                <div style="padding: 32px;">
+                    <div style="display: grid; gap: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <span><strong>Optimierung starten</strong></span>
+                            <kbd style="background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace;">Strg+Enter</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <span><strong>Kostenoptimierung</strong></span>
+                            <kbd style="background: #f59e0b; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace;">Strg+K</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <span><strong>Einstellungen öffnen</strong></span>
+                            <kbd style="background: #6b7280; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace;">Strg+,</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <span><strong>Einstellungen speichern</strong></span>
+                            <kbd style="background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace;">Strg+S</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <span><strong>PDF exportieren</strong></span>
+                            <kbd style="background: #ef4444; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace;">Strg+E</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <span><strong>Rohstoff hinzufügen</strong></span>
+                            <kbd style="background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace;">Strg+M</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <span><strong>Modals schließen</strong></span>
+                            <kbd style="background: #6b7280; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace;">ESC</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <span><strong>Diese Hilfe anzeigen</strong></span>
+                            <kbd style="background: #6b7280; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace;">?</kbd>
+                        </div>
+                    </div>
+                    <p style="margin-top: 24px; text-align: center; color: #6b7280; font-size: 0.9rem;">
+                        💡 Tipp: Auf Mac verwende <kbd style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px;">⌘ Cmd</kbd> statt Strg
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', helpHtml);
+}
+
+// ========================================
+// Gewürz-Validierung mit 3 Test-Chargen
+// ========================================
+
+// Test-Chargen Daten (Food Scan gemessen) - aus Word-Tabellen
+const testChargen = {
+    halb: {
+        name: "Halbe Gewürze (1,87%)",
+        gewuerzAnteil: 0.0187,
+        rohware: { be: 1.64, fat: 23.17, water: 61.66, protein: 12.51, beffe: 10.88 },
+        fertigware: { be: null, fat: 24.25, water: 60.02, protein: 12.8, beffe: 10.8 }
+    },
+    standard: {
+        name: "Standard (3,75%)",
+        gewuerzAnteil: 0.0375,
+        rohware: { be: 1.94, fat: 23.22, water: 60.90, protein: 12.07, beffe: 10.13 },
+        fertigware: { be: 2.03, fat: 23.42, water: 60.24, protein: 12.3, beffe: 10.27 }
+    },
+    doppelt: {
+        name: "Doppelte Gewürze (7,5%)",
+        gewuerzAnteil: 0.0750,
+        rohware: { be: 2.76, fat: 22.63, water: 59.62, protein: 11.57, beffe: 8.81 },
+        fertigware: { be: 2.89, fat: 22.85, water: 58.71, protein: 11.3, beffe: 8.42 }
+    }
+};
+
+// Fleischmischung aus Standard-Rezeptur (S III 62,9% + S IX 17,5% + Eis 19,6%)
+const fleischMischungStandard = {
+    be: 1.21,
+    fat: 23.85,
+    water: 62.99,
+    protein: 12.65,
+    beffe: 11.44
+};
+
+// Optimale Gewürz-Eigenschaften aus 3 Chargen berechnen (Least Squares)
+function calculateOptimalSpiceProperties() {
+    // Formel: Brät = Fleisch × (1-g) + Gewürze × g
+    // Umgestellt: Gewürze = (Brät - Fleisch × (1-g)) / g
+    
+    const fleisch = fleischMischungStandard;
+    const chargen = Object.values(testChargen);
+    
+    // Für jeden Parameter (be, fat, water, protein, beffe) berechnen wir den Mittelwert
+    const properties = ['be', 'fat', 'water', 'protein', 'beffe'];
+    const spiceProps = {};
+    
+    for (const prop of properties) {
+        let sum = 0;
+        let count = 0;
+        
+        for (const charge of chargen) {
+            const braet = charge.rohware[prop];
+            const g = charge.gewuerzAnteil;
+            const f = 1 - g;
+            
+            // Nur verwenden, wenn Wert vorhanden ist
+            if (braet === null || braet === undefined) continue;
+            
+            // Rückrechnung: Gewürze_prop = (Brät_prop - Fleisch_prop × f) / g
+            const gewuerzProp = (braet - fleisch[prop] * f) / g;
+            
+            sum += gewuerzProp;
+            count++;
+        }
+        
+        spiceProps[prop] = count > 0 ? sum / count : 0;
+    }
+    
+    return spiceProps;
+}
+
+// Produktions-Verlustfaktoren aus Rohware → Fertigware berechnen
+function calculateProductionFactors() {
+    // Durchschnittliche Verluste aus den 3 Chargen berechnen
+    const properties = ['be', 'fat', 'water', 'protein', 'beffe'];
+    const factors = {};
+    
+    for (const prop of properties) {
+        let sumChange = 0;
+        let count = 0;
+        
+        for (const charge of Object.values(testChargen)) {
+            const roh = charge.rohware[prop];
+            const fertig = charge.fertigware[prop];
+            
+            // Nur verwenden wenn beide Werte vorhanden
+            if (roh === null || fertig === null || roh === undefined || fertig === undefined) continue;
+            
+            // Absolute Änderung berechnen
+            const change = fertig - roh;
+            sumChange += change;
+            count++;
+        }
+        
+        factors[prop] = count > 0 ? sumChange / count : 0;
+    }
+    
+    console.log('📊 Produktions-Verlustfaktoren:', factors);
+    return factors;
+}
+
+// Von Rohware auf Fertigware umrechnen
+function calculateFertigware(rohware) {
+    const factors = calculateProductionFactors();
+    
+    return {
+        be: rohware.be + factors.be,
+        fat: rohware.fat + factors.fat,
+        water: rohware.water + factors.water,
+        protein: rohware.protein + factors.protein,
+        beffe: rohware.beffe + factors.beffe
+    };
+}
+
+// Gewürz-Eigenschaften automatisch optimieren und anwenden
+function autoOptimizeSpiceProperties() {
+    const optimal = calculateOptimalSpiceProperties();
+    
+    const message = `
+🔬 OPTIMIERTE GEWÜRZ-EIGENSCHAFTEN
+(Berechnet aus 3 Food Scan Messungen)
+
+Aktuelle Werte → Neue Werte:
+
+• BE:      ${rawMaterials.gewuerze.be.toFixed(2)}% → ${optimal.be.toFixed(2)}%
+• Fett:    ${rawMaterials.gewuerze.fat.toFixed(2)}% → ${optimal.fat.toFixed(2)}%
+• Wasser:  ${rawMaterials.gewuerze.water.toFixed(2)}% → ${optimal.water.toFixed(2)}%
+• Eiweiß:  ${rawMaterials.gewuerze.protein.toFixed(2)}% → ${optimal.protein.toFixed(2)}%
+• BEFFE:   ${rawMaterials.gewuerze.beffe.toFixed(2)}% → ${optimal.beffe.toFixed(2)}%
+
+Diese Werte minimieren die Abweichung zwischen 
+App-Berechnung und Food Scan Messungen.
+
+Möchten Sie diese Werte übernehmen?
+    `.trim();
+    
+    if (!confirm(message)) {
+        console.log('🚫 Optimierung abgebrochen');
+        return;
+    }
+    
+    // Werte übernehmen
+    rawMaterials.gewuerze.be = optimal.be;
+    rawMaterials.gewuerze.fat = optimal.fat;
+    rawMaterials.gewuerze.water = optimal.water;
+    rawMaterials.gewuerze.protein = optimal.protein;
+    rawMaterials.gewuerze.beffe = optimal.beffe;
+    
+    // In localStorage speichern
+    try {
+        const customMaterials = JSON.parse(localStorage.getItem('customRawMaterials') || '{}');
+        customMaterials.gewuerze = rawMaterials.gewuerze;
+        localStorage.setItem('customRawMaterials', JSON.stringify(customMaterials));
+    } catch (e) {
+        console.error('Fehler beim Speichern:', e);
+    }
+    
+    // UI aktualisieren
+    updateTotalMixture();
+    
+    // Validierung erneut ausführen um Verbesserung zu zeigen
+    setTimeout(() => runValidation(), 500);
+    
+    showNotification('✅ Gewürz-Eigenschaften optimiert! Validierung wird neu berechnet...');
+    
+    console.log('✅ Optimierte Gewürz-Eigenschaften angewendet:', optimal);
+}
+
+function runValidation() {
+    const resultsDiv = document.getElementById('validation-results');
+    
+    // Lade aktuelle Gewürz-Eigenschaften aus rawMaterials
+    const gewuerze = rawMaterials["gewuerze"];
+    const productionFactors = calculateProductionFactors();
+    
+    let html = '<div class="validation-cards" style="margin-top: 20px;">';
+    
+    // Für jede Test-Charge
+    for (const [key, charge] of Object.entries(testChargen)) {
+        // Berechne Brät-Werte mit aktuellen Gewürz-Eigenschaften
+        const berechnetRoh = berechneBraetValues(fleischMischungStandard, gewuerze, charge.gewuerzAnteil);
+        const gemessenRoh = charge.rohware;
+        
+        // Berechne Fertigware aus berechneter Rohware
+        const berechnetFertig = calculateFertigware(berechnetRoh);
+        const gemessenFertig = charge.fertigware;
+        
+        // Berechne Abweichungen für Rohware
+        const abwRoh = {
+            be: berechnetRoh.be - gemessenRoh.be,
+            fat: berechnetRoh.fat - gemessenRoh.fat,
+            water: berechnetRoh.water - gemessenRoh.water,
+            protein: berechnetRoh.protein - gemessenRoh.protein,
+            beffe: berechnetRoh.beffe - gemessenRoh.beffe
+        };
+        
+        // Berechne Abweichungen für Fertigware
+        const abwFertig = {
+            be: gemessenFertig.be !== null ? berechnetFertig.be - gemessenFertig.be : null,
+            fat: gemessenFertig.fat !== null ? berechnetFertig.fat - gemessenFertig.fat : null,
+            water: gemessenFertig.water !== null ? berechnetFertig.water - gemessenFertig.water : null,
+            protein: gemessenFertig.protein !== null ? berechnetFertig.protein - gemessenFertig.protein : null,
+            beffe: gemessenFertig.beffe !== null ? berechnetFertig.beffe - gemessenFertig.beffe : null
+        };
+        
+        // Bestimme Gesamtgenauigkeit (nur Rohware zählt für Farbe)
+        const maxAbwRoh = Math.max(Math.abs(abwRoh.be), Math.abs(abwRoh.fat), Math.abs(abwRoh.water), Math.abs(abwRoh.protein), Math.abs(abwRoh.beffe));
+        const genauigkeit = maxAbwRoh < 0.5 ? 'excellent' : maxAbwRoh < 1.0 ? 'good' : 'fair';
+        const genauigkeitIcon = genauigkeit === 'excellent' ? '✅' : genauigkeit === 'good' ? '✓' : '⚠️';
+        
+        html += `
+            <div class="validation-card ${genauigkeit}" style="background: white; border: 2px solid ${genauigkeit === 'excellent' ? '#10b981' : genauigkeit === 'good' ? '#3b82f6' : '#f59e0b'}; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 15px 0; color: #1a202c; display: flex; justify-content: space-between; align-items: center;">
+                    <span>${charge.name}</span>
+                    <span style="font-size: 1.5em;">${genauigkeitIcon}</span>
+                </h4>
+                
+                <h5 style="margin: 15px 0 10px 0; color: #3b82f6; font-size: 0.95rem;">📦 Rohware (Mischung vor Produktion)</h5>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 15px;">
+                    <thead>
+                        <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                            <th style="padding: 8px; text-align: left;">Parameter</th>
+                            <th style="padding: 8px; text-align: center;">Gemessen</th>
+                            <th style="padding: 8px; text-align: center;">Berechnet</th>
+                            <th style="padding: 8px; text-align: center;">Abweichung</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${createValidationRow('BE%', gemessenRoh.be, berechnetRoh.be, abwRoh.be)}
+                        ${createValidationRow('FETT%', gemessenRoh.fat, berechnetRoh.fat, abwRoh.fat)}
+                        ${createValidationRow('Wasser%', gemessenRoh.water, berechnetRoh.water, abwRoh.water)}
+                        ${createValidationRow('Eiweiß%', gemessenRoh.protein, berechnetRoh.protein, abwRoh.protein)}
+                        ${createValidationRow('BEFFE%', gemessenRoh.beffe, berechnetRoh.beffe, abwRoh.beffe)}
+                    </tbody>
+                </table>
+                
+                <h5 style="margin: 15px 0 10px 0; color: #10b981; font-size: 0.95rem;">🏭 Fertigware (nach Brühen/Kochen)</h5>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background: #f0fdf4; border-bottom: 2px solid #bbf7d0;">
+                            <th style="padding: 8px; text-align: left;">Parameter</th>
+                            <th style="padding: 8px; text-align: center;">Gemessen</th>
+                            <th style="padding: 8px; text-align: center;">Prognose</th>
+                            <th style="padding: 8px; text-align: center;">Abweichung</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${createValidationRow('BE%', gemessenFertig.be, berechnetFertig.be, abwFertig.be)}
+                        ${createValidationRow('FETT%', gemessenFertig.fat, berechnetFertig.fat, abwFertig.fat)}
+                        ${createValidationRow('Wasser%', gemessenFertig.water, berechnetFertig.water, abwFertig.water)}
+                        ${createValidationRow('Eiweiß%', gemessenFertig.protein, berechnetFertig.protein, abwFertig.protein)}
+                        ${createValidationRow('BEFFE%', gemessenFertig.beffe, berechnetFertig.beffe, abwFertig.beffe)}
+                    </tbody>
+                </table>
+                
+                <p style="margin-top: 10px; font-size: 0.85rem; color: #6b7280;">
+                    Max. Abweichung Rohware: <strong>${maxAbwRoh.toFixed(2)}%</strong>
+                </p>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    
+    // Produktions-Faktoren anzeigen
+    html += `
+        <div style="background: #f0f9ff; border: 2px solid #3b82f6; border-radius: 12px; padding: 20px; margin-top: 20px;">
+            <h4 style="margin: 0 0 15px 0; color: #1e40af;">📊 Durchschnittliche Produktions-Änderungen (Rohware → Fertigware)</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                <div class="spec-item"><strong>BE:</strong> ${productionFactors.be >= 0 ? '+' : ''}${productionFactors.be.toFixed(3)}%</div>
+                <div class="spec-item"><strong>Fett:</strong> ${productionFactors.fat >= 0 ? '+' : ''}${productionFactors.fat.toFixed(3)}%</div>
+                <div class="spec-item"><strong>Wasser:</strong> ${productionFactors.water >= 0 ? '+' : ''}${productionFactors.water.toFixed(3)}%</div>
+                <div class="spec-item"><strong>Eiweiß:</strong> ${productionFactors.protein >= 0 ? '+' : ''}${productionFactors.protein.toFixed(3)}%</div>
+                <div class="spec-item"><strong>BEFFE:</strong> ${productionFactors.beffe >= 0 ? '+' : ''}${productionFactors.beffe.toFixed(3)}%</div>
+            </div>
+            <p style="margin-top: 15px; font-size: 0.9rem; color: #6b7280;">
+                ℹ️ Diese Faktoren werden automatisch auf deine Rohware-Kalkulationen angewendet, um die Fertigware zu prognostizieren.
+            </p>
+        </div>
+    `;
+    
+    resultsDiv.innerHTML = html;
+    
+    showNotification('✅ Validierung abgeschlossen - zeigt Rohware und Fertigware!');
+}
+
+function createValidationRow(label, gemessen, berechnet, abweichung) {
+    // Wenn Wert null ist, zeige "—"
+    if (gemessen === null || gemessen === undefined) {
+        return `
+            <tr style="border-bottom: 1px solid #f1f3f4;">
+                <td style="padding: 8px; font-weight: 600;">${label}</td>
+                <td style="padding: 8px; text-align: center; color: #9ca3af;">—</td>
+                <td style="padding: 8px; text-align: center; color: #9ca3af;">—</td>
+                <td style="padding: 8px; text-align: center; color: #9ca3af;">—</td>
+            </tr>
+        `;
+    }
+    
+    if (abweichung === null || abweichung === undefined) {
+        return `
+            <tr style="border-bottom: 1px solid #f1f3f4;">
+                <td style="padding: 8px; font-weight: 600;">${label}</td>
+                <td style="padding: 8px; text-align: center;">${gemessen.toFixed(2)}</td>
+                <td style="padding: 8px; text-align: center;">${berechnet.toFixed(2)}</td>
+                <td style="padding: 8px; text-align: center; color: #9ca3af;">—</td>
+            </tr>
+        `;
+    }
+    
+    const absAbw = Math.abs(abweichung);
+    const color = absAbw < 0.3 ? '#10b981' : absAbw < 0.5 ? '#3b82f6' : absAbw < 1.0 ? '#f59e0b' : '#ef4444';
+    
+    return `
+        <tr style="border-bottom: 1px solid #f1f3f4;">
+            <td style="padding: 8px; font-weight: 600;">${label}</td>
+            <td style="padding: 8px; text-align: center;">${gemessen.toFixed(2)}</td>
+            <td style="padding: 8px; text-align: center;">${berechnet.toFixed(2)}</td>
+            <td style="padding: 8px; text-align: center; color: ${color}; font-weight: 600;">
+                ${abweichung >= 0 ? '+' : ''}${abweichung.toFixed(2)}
+            </td>
+        </tr>
+    `;
+}
+
+function berechneBraetValues(fleisch, gewuerze, gewuerzAnteil) {
+    const f = 1 - gewuerzAnteil;
+    const g = gewuerzAnteil;
+    
+    return {
+        be: fleisch.be * f + gewuerze.be * g,
+        fat: fleisch.fat * f + gewuerze.fat * g,
+        water: fleisch.water * f + gewuerze.water * g,
+        protein: fleisch.protein * f + gewuerze.protein * g,
+        beffe: fleisch.beffe * f + gewuerze.beffe * g
+    };
+}
+
+// Rückrechnungs-Funktion: Von Brät (mit Gewürzen) auf Fleisch (ohne Gewürze)
+function calculateMeatFromBraet(braetValues, spicePercentage) {
+    const gewuerze = rawMaterials["gewuerze"];
+    const f = 1 - spicePercentage;
+    const g = spicePercentage;
+    
+    // Umgekehrte Formel: Fleisch = (Brät - Gewürze × g) / f
+    return {
+        be: (braetValues.be - gewuerze.be * g) / f,
+        fat: (braetValues.fat - gewuerze.fat * g) / f,
+        water: (braetValues.water - gewuerze.water * g) / f,
+        protein: (braetValues.protein - gewuerze.protein * g) / f,
+        beffe: (braetValues.beffe - gewuerze.beffe * g) / f
+    };
+}
+
+// Brät-Analyse UI anzeigen/verstecken
+function showBraetAnalysis(index) {
+    console.log('🚀 showBraetAnalysis called with index:', index);
+    const card = document.querySelector(`.material-card[data-index="${index}"]`);
+    console.log('📦 Card found:', card ? 'YES' : 'NO');
+    if (!card) {
+        console.error('❌ Card not found for index:', index);
+        return;
+    }
+    
+    // Prüfe, ob Analyse-Box bereits existiert
+    let analysisBox = card.querySelector('.braet-analysis-box');
+    console.log('📊 Analysis box exists:', analysisBox ? 'YES' : 'NO');
+    if (!analysisBox) {
+        // Erstelle neue Analyse-Box
+        const analysisHTML = `
+            <div class="braet-analysis-box" id="braet-analysis-${index}">
+                <div class="analysis-header">
+                    <h4>🔬 Brät-Analyse & Korrektur</h4>
+                    <p>Rückrechnung + Optimierungsempfehlung für dein Brät</p>
+                </div>
+                
+                <!-- Tab Navigation -->
+                <div class="braet-tabs">
+                    <button class="braet-tab active" onclick="switchBraetTab(${index}, 'rueckrechnung')">
+                        📊 Rückrechnung
+                    </button>
+                    <button class="braet-tab" onclick="switchBraetTab(${index}, 'korrektur')">
+                        🎯 Korrektur-Rechner
+                    </button>
+                </div>
+                
+                <!-- Tab 1: Rückrechnung -->
+                <div class="braet-tab-content" id="braet-tab-rueckrechnung-${index}">
+                    <div class="input-group" style="margin-bottom: 15px;">
+                        <label for="braet-spice-percent-${index}">Gewürz-Anteil im Brät (%)</label>
+                        <input type="number" id="braet-spice-percent-${index}" value="3.75" step="0.1" min="0" max="15" 
+                               oninput="performBraetAnalysis(${index})" 
+                               title="Wieviel % der Brät-Masse sind Gewürze?">
+                    </div>
+                    
+                    <button class="analysis-btn" onclick="performBraetAnalysis(${index})">
+                        🧪 Fleisch-Werte berechnen
+                    </button>
+                    
+                    <div class="analysis-results" id="braet-results-${index}" style="display: none;">
+                        <!-- Ergebnisse werden hier eingefügt -->
+                    </div>
+                </div>
+                
+                <!-- Tab 2: Korrektur-Rechner -->
+                <div class="braet-tab-content" id="braet-tab-korrektur-${index}" style="display: none;">
+                    <div class="korrektur-section">
+                        <h5>📝 Ausgangsdaten</h5>
+                        
+                        <div class="input-group">
+                            <label for="braet-menge-${index}">Aktuelle Brät-Menge (kg)</label>
+                            <input type="number" id="braet-menge-${index}" value="20" step="0.1" min="0.1" 
+                                   title="Wieviel kg Brät hast du aktuell?">
+                        </div>
+                        
+                        <!-- Ursprüngliche Fleischwerte (optional) -->
+                        <details class="material-details optional-details" style="margin-top: 15px;">
+                            <summary class="material-summary optional-summary">
+                                📋 Ursprüngliche Fleischwerte (optional - für Dokumentation)
+                            </summary>
+                            <div class="material-inputs">
+                                <p class="hint-text" style="margin-bottom: 15px;">
+                                    Die Werte deines Ausgangsfleisches VOR der Gewürzzugabe (optional für Plausibilitätsprüfung)
+                                </p>
+                                <div class="input-grid-2col">
+                                    <div class="input-group">
+                                        <label for="ursprung-be-${index}">Urspr. Fleisch BE%</label>
+                                        <input type="number" id="ursprung-be-${index}" value="2.5" step="0.1" 
+                                               title="BE% des Fleisches VOR dem Mischen">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="ursprung-beffe-${index}">Urspr. Fleisch BEFFE%</label>
+                                        <input type="number" id="ursprung-beffe-${index}" value="10.0" step="0.1" 
+                                               title="BEFFE% des Fleisches VOR dem Mischen">
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                    
+                    <div class="korrektur-section material-values-section">
+                        <h5>🧪 Aktuelle Material-Werte (FOSS-Messung)</h5>
+                        <p class="hint-text" style="margin-bottom: 15px;">
+                            Gib die aktuellen Werte von S III und S IX aus deiner FOSS-Messung ein
+                        </p>
+                        
+                        <!-- S III Werte -->
+                        <details class="material-details" open>
+                            <summary class="material-summary">📦 S III (Schweinefleisch Spitzenqualität)</summary>
+                            <div class="material-inputs">
+                                <div class="input-grid-3col">
+                                    <div class="input-group">
+                                        <label for="s3-be-${index}">S III BE%</label>
+                                        <input type="number" id="s3-be-${index}" value="${rawMaterials.s3.be.toFixed(1)}" step="0.1">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="s3-beffe-${index}">S III BEFFE%</label>
+                                        <input type="number" id="s3-beffe-${index}" value="${rawMaterials.s3.beffe.toFixed(1)}" step="0.1">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="s3-protein-${index}">S III Eiweiß%</label>
+                                        <input type="number" id="s3-protein-${index}" value="${rawMaterials.s3.protein.toFixed(1)}" step="0.1">
+                                    </div>
+                                </div>
+                                <div class="input-grid-2col" style="margin-top: 10px;">
+                                    <div class="input-group">
+                                        <label for="s3-fat-${index}">S III Fett%</label>
+                                        <input type="number" id="s3-fat-${index}" value="${rawMaterials.s3.fat.toFixed(1)}" step="0.1">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="s3-water-${index}">S III Wasser%</label>
+                                        <input type="number" id="s3-water-${index}" value="${rawMaterials.s3.water.toFixed(1)}" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                        
+                        <!-- S IX Werte -->
+                        <details class="material-details" open style="margin-top: 15px;">
+                            <summary class="material-summary">📦 S IX (Rindfleisch Spitzenqualität)</summary>
+                            <div class="material-inputs">
+                                <div class="input-grid-3col">
+                                    <div class="input-group">
+                                        <label for="s9-be-${index}">S IX BE%</label>
+                                        <input type="number" id="s9-be-${index}" value="${rawMaterials.s9.be.toFixed(1)}" step="0.1">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="s9-beffe-${index}">S IX BEFFE%</label>
+                                        <input type="number" id="s9-beffe-${index}" value="${rawMaterials.s9.beffe.toFixed(1)}" step="0.1">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="s9-protein-${index}">S IX Eiweiß%</label>
+                                        <input type="number" id="s9-protein-${index}" value="${rawMaterials.s9.protein.toFixed(1)}" step="0.1">
+                                    </div>
+                                </div>
+                                <div class="input-grid-2col" style="margin-top: 10px;">
+                                    <div class="input-group">
+                                        <label for="s9-fat-${index}">S IX Fett%</label>
+                                        <input type="number" id="s9-fat-${index}" value="${rawMaterials.s9.fat.toFixed(1)}" step="0.1">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="s9-water-${index}">S IX Wasser%</label>
+                                        <input type="number" id="s9-water-${index}" value="${rawMaterials.s9.water.toFixed(1)}" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                    
+                    <div class="korrektur-section">
+                        <h5>🎯 Optimierungs-Ziele</h5>
+                        <p class="hint-text" style="margin-bottom: 15px;">
+                            Wähle für jeden Parameter: Fester Zielwert, Minimieren oder Maximieren
+                        </p>
+                        
+                        <!-- BE% -->
+                        <div class="optimization-parameter">
+                            <label class="param-label">BE - Bindegewebseiweiß%</label>
+                            <div class="optimization-mode">
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-be-${index}" value="target" checked 
+                                           onchange="toggleOptimizationInput('be', ${index})">
+                                    <span>Zielwert</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-be-${index}" value="minimize" 
+                                           onchange="toggleOptimizationInput('be', ${index})">
+                                    <span>Minimieren ↓</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-be-${index}" value="maximize" 
+                                           onchange="toggleOptimizationInput('be', ${index})">
+                                    <span>Maximieren ↑</span>
+                                </label>
+                            </div>
+                            <input type="number" id="ziel-be-${index}" value="3.0" step="0.1" 
+                                   class="opt-input" title="Ziel-Wert für BE%">
+                        </div>
+                        
+                        <!-- BEFFE% -->
+                        <div class="optimization-parameter">
+                            <label class="param-label">BEFFE%</label>
+                            <div class="optimization-mode">
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-beffe-${index}" value="target" checked 
+                                           onchange="toggleOptimizationInput('beffe', ${index})">
+                                    <span>Zielwert</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-beffe-${index}" value="minimize" 
+                                           onchange="toggleOptimizationInput('beffe', ${index})">
+                                    <span>Minimieren ↓</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-beffe-${index}" value="maximize" 
+                                           onchange="toggleOptimizationInput('beffe', ${index})">
+                                    <span>Maximieren ↑</span>
+                                </label>
+                            </div>
+                            <input type="number" id="ziel-beffe-${index}" value="8.0" step="0.1" 
+                                   class="opt-input" title="Ziel-Wert für BEFFE%">
+                        </div>
+                        
+                        <!-- Protein% -->
+                        <div class="optimization-parameter">
+                            <label class="param-label">Eiweiß%</label>
+                            <div class="optimization-mode">
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-protein-${index}" value="target" checked 
+                                           onchange="toggleOptimizationInput('protein', ${index})">
+                                    <span>Zielwert</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-protein-${index}" value="minimize" 
+                                           onchange="toggleOptimizationInput('protein', ${index})">
+                                    <span>Minimieren ↓</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-protein-${index}" value="maximize" 
+                                           onchange="toggleOptimizationInput('protein', ${index})">
+                                    <span>Maximieren ↑</span>
+                                </label>
+                            </div>
+                            <input type="number" id="ziel-protein-${index}" value="14.0" step="0.1" 
+                                   class="opt-input" title="Ziel-Wert für Eiweiß%">
+                        </div>
+                        
+                        <!-- Fett% -->
+                        <div class="optimization-parameter">
+                            <label class="param-label">Fett%</label>
+                            <div class="optimization-mode">
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-fat-${index}" value="target" checked 
+                                           onchange="toggleOptimizationInput('fat', ${index})">
+                                    <span>Zielwert</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-fat-${index}" value="minimize" 
+                                           onchange="toggleOptimizationInput('fat', ${index})">
+                                    <span>Minimieren ↓</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-fat-${index}" value="maximize" 
+                                           onchange="toggleOptimizationInput('fat', ${index})">
+                                    <span>Maximieren ↑</span>
+                                </label>
+                            </div>
+                            <input type="number" id="ziel-fat-${index}" value="20.0" step="0.1" 
+                                   class="opt-input" title="Ziel-Wert für Fett%">
+                        </div>
+                        
+                        <!-- Wasser% -->
+                        <div class="optimization-parameter">
+                            <label class="param-label">Wasser%</label>
+                            <div class="optimization-mode">
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-water-${index}" value="target" checked 
+                                           onchange="toggleOptimizationInput('water', ${index})">
+                                    <span>Zielwert</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-water-${index}" value="minimize" 
+                                           onchange="toggleOptimizationInput('water', ${index})">
+                                    <span>Minimieren ↓</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="opt-mode-water-${index}" value="maximize" 
+                                           onchange="toggleOptimizationInput('water', ${index})">
+                                    <span>Maximieren ↑</span>
+                                </label>
+                            </div>
+                            <input type="number" id="ziel-water-${index}" value="62.0" step="0.1" 
+                                   class="opt-input" title="Ziel-Wert für Wasser%">
+                        </div>
+                        
+                        <p class="hint-text" style="margin-top: 15px;">
+                            💡 <strong>Tipp:</strong> Wähle "Minimieren" für BEFFE und Fett, wenn du Leitsatz-Grenzwerte erreichen willst!
+                        </p>
+                    </div>
+                    
+                    <button class="analysis-btn" onclick="calculateBraetKorrektur(${index})">
+                        🚀 Korrektur berechnen
+                    </button>
+                    
+                    <div class="analysis-results" id="korrektur-results-${index}" style="display: none;">
+                        <!-- Korrektur-Empfehlungen werden hier eingefügt -->
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        card.insertAdjacentHTML('beforeend', analysisHTML);
+        analysisBox = card.querySelector('.braet-analysis-box');
+    }
+    
+    // Zeige die Box
+    analysisBox.style.display = 'block';
+    
+    // Führe automatisch Analyse durch
+    setTimeout(() => performBraetAnalysis(index), 100);
+}
+
+function hideBraetAnalysis(index) {
+    const card = document.querySelector(`.material-card[data-index="${index}"]`);
+    if (!card) return;
+    
+    const analysisBox = card.querySelector('.braet-analysis-box');
+    if (analysisBox) {
+        analysisBox.style.display = 'none';
+    }
+}
+
+function performBraetAnalysis(index) {
+    // Brät-Werte aus Eingabefeldern lesen
+    const braetValues = {
+        be: parseFloat(document.getElementById(`current-be-${index}`).value) || 0,
+        fat: parseFloat(document.getElementById(`current-fat-${index}`).value) || 0,
+        water: parseFloat(document.getElementById(`current-water-${index}`).value) || 0,
+        protein: parseFloat(document.getElementById(`current-protein-${index}`).value) || 0,
+        beffe: parseFloat(document.getElementById(`current-beffe-manual-${index}`).value) || 0
+    };
+    
+    // Gewürz-Anteil lesen
+    const spicePercent = parseFloat(document.getElementById(`braet-spice-percent-${index}`).value) || 0;
+    const spicePercentage = spicePercent / 100;
+    
+    // Rückrechnung durchführen
+    const fleischValues = calculateMeatFromBraet(braetValues, spicePercentage);
+    
+    // Leitsatz-Check für typische Brühwurst
+    const leitsatzChecks = {
+        be: { value: fleischValues.be, max: 3.0, status: fleischValues.be <= 3.0 },
+        beffe: { value: fleischValues.beffe, min: 8.0, status: fleischValues.beffe >= 8.0 },
+        waterProtein: { value: fleischValues.water / fleischValues.protein, max: 5.0, status: (fleischValues.water / fleischValues.protein) <= 5.0 }
+    };
+    
+    // Ergebnisse anzeigen
+    const resultsDiv = document.getElementById(`braet-results-${index}`);
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = `
+        <div class="analysis-section">
+            <h5>🥩 Rückgerechnete Fleisch-Werte (ohne ${spicePercent}% Gewürze):</h5>
+            <div class="analysis-grid">
+                <div class="analysis-item">
+                    <span class="analysis-label">BE%:</span>
+                    <span class="analysis-value ${leitsatzChecks.be.status ? 'status-ok' : 'status-danger'}">
+                        ${fleischValues.be.toFixed(2)}% ${leitsatzChecks.be.status ? '✅' : '❌'}
+                    </span>
+                    <span class="analysis-hint">Max: ${leitsatzChecks.be.max}%</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">FETT%:</span>
+                    <span class="analysis-value">${fleischValues.fat.toFixed(2)}%</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">Wasser%:</span>
+                    <span class="analysis-value">${fleischValues.water.toFixed(2)}%</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">Eiweiß%:</span>
+                    <span class="analysis-value">${fleischValues.protein.toFixed(2)}%</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">BEFFE%:</span>
+                    <span class="analysis-value ${leitsatzChecks.beffe.status ? 'status-ok' : 'status-danger'}">
+                        ${fleischValues.beffe.toFixed(2)}% ${leitsatzChecks.beffe.status ? '✅' : '❌'}
+                    </span>
+                    <span class="analysis-hint">Min: ${leitsatzChecks.beffe.min}%</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">W/EW-Faktor:</span>
+                    <span class="analysis-value ${leitsatzChecks.waterProtein.status ? 'status-ok' : 'status-danger'}">
+                        ${leitsatzChecks.waterProtein.value.toFixed(2)} ${leitsatzChecks.waterProtein.status ? '✅' : '❌'}
+                    </span>
+                    <span class="analysis-hint">Max: ${leitsatzChecks.waterProtein.max}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="leitsatz-summary">
+            <strong>
+                ${leitsatzChecks.be.status && leitsatzChecks.beffe.status && leitsatzChecks.waterProtein.status 
+                    ? '✅ Alle Leitsätze erfüllt!' 
+                    : '⚠️ Leitsatz-Warnung - Werte überprüfen!'}
+            </strong>
+        </div>
+        
+        <div class="analysis-info">
+            <p><strong>ℹ️ Info:</strong> Diese Werte zeigen die theoretische Fleischzusammensetzung VOR der Gewürzzugabe.</p>
+            <p>Vergleiche sie mit deinen ursprünglichen Rohstoff-Messungen zur Plausibilitätsprüfung.</p>
+        </div>
+    `;
+}
+
+// Tab-Wechsel in Brät-Analyse
+// Toggle Input-Feld für Optimierungs-Ziele
+function toggleOptimizationInput(param, index) {
+    const mode = document.querySelector(`input[name="opt-mode-${param}-${index}"]:checked`).value;
+    const input = document.getElementById(`ziel-${param}-${index}`);
+    
+    if (mode === 'target') {
+        input.style.display = 'block';
+        input.disabled = false;
+    } else {
+        input.style.display = 'none';
+        input.disabled = true;
+    }
+}
+
+function switchBraetTab(index, tabName) {
+    // Alle Tabs deaktivieren
+    const tabs = document.querySelectorAll(`#braet-analysis-${index} .braet-tab`);
+    tabs.forEach(tab => tab.classList.remove('active'));
+    
+    // Alle Tab-Inhalte verstecken
+    const contents = document.querySelectorAll(`#braet-analysis-${index} .braet-tab-content`);
+    contents.forEach(content => content.style.display = 'none');
+    
+    // Aktiven Tab und Inhalt anzeigen
+    const activeTabButton = document.querySelector(`#braet-analysis-${index} .braet-tab:nth-child(${tabName === 'rueckrechnung' ? 1 : 2})`);
+    if (activeTabButton) activeTabButton.classList.add('active');
+    
+    const activeContent = document.getElementById(`braet-tab-${tabName}-${index}`);
+    if (activeContent) activeContent.style.display = 'block';
+}
+
+// Korrektur-Rechner für Brät
+function calculateBraetKorrektur(index) {
+    // Aktuelle Brät-Werte
+    const braetValues = {
+        be: parseFloat(document.getElementById(`current-be-${index}`).value) || 0,
+        beffe: parseFloat(document.getElementById(`current-beffe-manual-${index}`).value) || 0,
+        protein: parseFloat(document.getElementById(`current-protein-${index}`).value) || 0,
+        fat: parseFloat(document.getElementById(`current-fat-${index}`).value) || 0,
+        water: parseFloat(document.getElementById(`current-water-${index}`).value) || 0
+    };
+    
+    // Eingabedaten
+    const braetMenge = parseFloat(document.getElementById(`braet-menge-${index}`).value) || 0;
+    const ursprungBE = parseFloat(document.getElementById(`ursprung-be-${index}`).value) || 0;
+    const ursprungBEFFE = parseFloat(document.getElementById(`ursprung-beffe-${index}`).value) || 0;
+    
+    // Lese Optimierungs-Modi und Zielwerte
+    const optMode = {
+        be: document.querySelector(`input[name="opt-mode-be-${index}"]:checked`).value,
+        beffe: document.querySelector(`input[name="opt-mode-beffe-${index}"]:checked`).value,
+        protein: document.querySelector(`input[name="opt-mode-protein-${index}"]:checked`).value,
+        fat: document.querySelector(`input[name="opt-mode-fat-${index}"]:checked`).value,
+        water: document.querySelector(`input[name="opt-mode-water-${index}"]:checked`).value
+    };
+    
+    const zielBE = optMode.be === 'target' ? (parseFloat(document.getElementById(`ziel-be-${index}`).value) || 0) : null;
+    const zielBEFFE = optMode.beffe === 'target' ? (parseFloat(document.getElementById(`ziel-beffe-${index}`).value) || 0) : null;
+    const zielProtein = optMode.protein === 'target' ? (parseFloat(document.getElementById(`ziel-protein-${index}`).value) || 0) : null;
+    const zielFat = optMode.fat === 'target' ? (parseFloat(document.getElementById(`ziel-fat-${index}`).value) || 0) : null;
+    const zielWater = optMode.water === 'target' ? (parseFloat(document.getElementById(`ziel-water-${index}`).value) || 0) : null;
+    
+    console.log('🎯 Optimierungs-Modi:', optMode);
+    console.log('🎯 Zielwerte:', { be: zielBE, beffe: zielBEFFE, protein: zielProtein, fat: zielFat, water: zielWater });
+    
+    // Validierung
+    if (braetMenge <= 0) {
+        alert('Bitte gib eine gültige Brät-Menge ein!');
+        return;
+    }
+    
+    // S III und S IX Werte aus Eingabefeldern lesen
+    const s3 = {
+        be: parseFloat(document.getElementById(`s3-be-${index}`).value) || rawMaterials['s3'].be,
+        beffe: parseFloat(document.getElementById(`s3-beffe-${index}`).value) || rawMaterials['s3'].beffe,
+        protein: parseFloat(document.getElementById(`s3-protein-${index}`).value) || rawMaterials['s3'].protein,
+        fat: parseFloat(document.getElementById(`s3-fat-${index}`).value) || rawMaterials['s3'].fat,
+        water: parseFloat(document.getElementById(`s3-water-${index}`).value) || rawMaterials['s3'].water
+    };
+    
+    const s9 = {
+        be: parseFloat(document.getElementById(`s9-be-${index}`).value) || rawMaterials['s9'].be,
+        beffe: parseFloat(document.getElementById(`s9-beffe-${index}`).value) || rawMaterials['s9'].beffe,
+        protein: parseFloat(document.getElementById(`s9-protein-${index}`).value) || rawMaterials['s9'].protein,
+        fat: parseFloat(document.getElementById(`s9-fat-${index}`).value) || rawMaterials['s9'].fat,
+        water: parseFloat(document.getElementById(`s9-water-${index}`).value) || rawMaterials['s9'].water
+    };
+    
+    // Berechne benötigte Menge für S III und S IX
+    // Formel: x = M_brät × (Ziel - Ist) / (Material - Ziel)
+    
+    const korrekturOptionen = [];
+    
+    // Hilfsfunktion: Berechne alle neuen Werte nach Zugabe
+    function berechneNeueWerte(braetMenge, braetValues, material, menge) {
+        const gesamt = braetMenge + menge;
+        return {
+            be: (braetMenge * braetValues.be + menge * material.be) / gesamt,
+            beffe: (braetMenge * braetValues.beffe + menge * material.beffe) / gesamt,
+            protein: (braetMenge * braetValues.protein + menge * material.protein) / gesamt,
+            fat: (braetMenge * braetValues.fat + menge * material.fat) / gesamt,
+            water: (braetMenge * braetValues.water + menge * material.water) / gesamt
+        };
+    }
+    
+    // Hilfsfunktion: Bewerte wie gut die Optimierungs-Ziele erreicht werden
+    function bewerteZielerreichung(neueWerte, ziele, optMode, braetValues, toleranz = 0.5) {
+        const params = ['be', 'beffe', 'protein', 'fat', 'water'];
+        const basisWichtung = { be: 3, beffe: 3, protein: 2, fat: 2, water: 1 };
+        
+        const checks = {};
+        let score = 0;
+        let maxScore = 0;
+        let anzahlErreicht = 0;
+        
+        params.forEach(param => {
+            const mode = optMode[param];
+            // Zielwert-Parameter bekommen doppelte Wichtung (harte Constraints!)
+            const w = mode === 'target' ? basisWichtung[param] * 2 : basisWichtung[param];
+            const wert = neueWerte[param];
+            const alt = braetValues[param];
+            const ziel = ziele[param];
+            
+            maxScore += w * 100;
+            
+            if (mode === 'target') {
+                // Zielwert-Modus: Je näher am Ziel, desto besser
+                const diff = Math.abs(wert - ziel);
+                const erreicht = diff <= toleranz;
+                const teilpunkte = Math.max(0, 100 - (diff * 20));
+                
+                checks[param] = {
+                    mode: 'target',
+                    erreicht: erreicht,
+                    diff: diff,
+                    wichtung: w,
+                    wert: wert,
+                    ziel: ziel
+                };
+                
+                score += erreicht ? (w * 100) : (w * teilpunkte);
+                if (erreicht) anzahlErreicht++;
+                
+            } else if (mode === 'minimize') {
+                // Minimieren-Modus: Je kleiner, desto besser
+                // Verbesserung gegenüber Ausgangswert bewerten
+                const verbesserung = alt - wert; // Positiv = besser (Wert gesunken)
+                const verbesserungPercent = (verbesserung / alt) * 100;
+                
+                // Score: 0-100 basierend auf Verbesserung
+                // 10% Verbesserung = 100 Punkte, 5% = 50 Punkte, etc.
+                const teilpunkte = Math.max(0, Math.min(100, verbesserungPercent * 10));
+                const erreicht = verbesserungPercent >= 5; // Mind. 5% Verbesserung
+                
+                checks[param] = {
+                    mode: 'minimize',
+                    erreicht: erreicht,
+                    diff: verbesserung,
+                    wichtung: w,
+                    wert: wert,
+                    alt: alt,
+                    verbesserungPercent: verbesserungPercent
+                };
+                
+                score += w * teilpunkte;
+                if (erreicht) anzahlErreicht++;
+                
+            } else if (mode === 'maximize') {
+                // Maximieren-Modus: Je größer, desto besser
+                const verbesserung = wert - alt; // Positiv = besser (Wert gestiegen)
+                const verbesserungPercent = (verbesserung / alt) * 100;
+                
+                const teilpunkte = Math.max(0, Math.min(100, verbesserungPercent * 10));
+                const erreicht = verbesserungPercent >= 5; // Mind. 5% Verbesserung
+                
+                checks[param] = {
+                    mode: 'maximize',
+                    erreicht: erreicht,
+                    diff: verbesserung,
+                    wichtung: w,
+                    wert: wert,
+                    alt: alt,
+                    verbesserungPercent: verbesserungPercent
+                };
+                
+                score += w * teilpunkte;
+                if (erreicht) anzahlErreicht++;
+            }
+        });
+        
+        return {
+            checks: checks,
+            score: (score / maxScore) * 100,
+            anzahlErreicht: anzahlErreicht
+        };
+    }
+    
+    const ziele = { be: zielBE, beffe: zielBEFFE, protein: zielProtein, fat: zielFat, water: zielWater };
+    
+    // 🚀 KOMBINATIONS-ALGORITHMUS: Teste alle Kombinationen von S III + S IX
+    const maxAdditionKg = 8.0; // Max 8 kg Zugabe pro Material (erhöht für bessere Optimierung)
+    const stepKg = 0.1; // Schrittweite in kg (0.1 kg = 100g - feiner für präzisere Ergebnisse!)
+    const maxTotalAddition = braetMenge * 0.5; // Max 50% der Brät-Menge insgesamt
+    
+    console.log('🔬 Starte Kombinations-Algorithmus (OPTIMIERT)...');
+    console.log(`   Brät-Menge: ${braetMenge} kg`);
+    console.log(`   Max Zugabe pro Material: ${maxAdditionKg} kg (↑ erhöht!)`);
+    console.log(`   Max Gesamt-Zugabe: ${maxTotalAddition.toFixed(1)} kg (50% der Brät-Menge)`);
+    console.log(`   Schrittweite: ${stepKg} kg (↓ feiner für bessere Präzision!)`);
+    let combinationsTested = 0;
+    
+    // Hilfsfunktion: Berechne Werte nach Zugabe mehrerer Materialien
+    function berechneKombinationsWerte(braetMenge, braetValues, s3Menge, s3Values, s9Menge, s9Values) {
+        const gesamt = braetMenge + s3Menge + s9Menge;
+        return {
+            be: (braetMenge * braetValues.be + s3Menge * s3Values.be + s9Menge * s9Values.be) / gesamt,
+            beffe: (braetMenge * braetValues.beffe + s3Menge * s3Values.beffe + s9Menge * s9Values.beffe) / gesamt,
+            protein: (braetMenge * braetValues.protein + s3Menge * s3Values.protein + s9Menge * s9Values.protein) / gesamt,
+            fat: (braetMenge * braetValues.fat + s3Menge * s3Values.fat + s9Menge * s9Values.fat) / gesamt,
+            water: (braetMenge * braetValues.water + s3Menge * s3Values.water + s9Menge * s9Values.water) / gesamt
+        };
+    }
+    
+    // Teste alle Kombinationen von S III und S IX (in absoluten kg!)
+    for (let s3Menge = 0; s3Menge <= maxAdditionKg; s3Menge += stepKg) {
+        for (let s9Menge = 0; s9Menge <= maxAdditionKg; s9Menge += stepKg) {
+            
+            // Skip wenn beide 0 sind
+            if (s3Menge === 0 && s9Menge === 0) continue;
+            
+            // Gesamte Zugabe nicht mehr als 50% der Brät-Menge
+            if (s3Menge + s9Menge > maxTotalAddition) continue;
+            
+            const neueWerte = berechneKombinationsWerte(braetMenge, braetValues, s3Menge, s3, s9Menge, s9);
+            const bewertung = bewerteZielerreichung(neueWerte, ziele, optMode, braetValues);
+            
+            combinationsTested++;
+            
+            // ⚠️ CONSTRAINT-PRÜFUNG: Harte Grenzen für Zielwert-Parameter
+            let verletzt_constraint = false;
+            const MAX_ABWEICHUNG = 0.50; // Max 50% Abweichung erlaubt (erhöht für mehr Flexibilität)
+            
+            ['be', 'beffe', 'protein', 'fat', 'water'].forEach(param => {
+                if (optMode[param] === 'target' && ziele[param] !== null) {
+                    const abweichung = Math.abs(neueWerte[param] - ziele[param]) / ziele[param];
+                    if (abweichung > MAX_ABWEICHUNG) {
+                        verletzt_constraint = true;
+                        console.log(`   ❌ Constraint verletzt: ${param} = ${neueWerte[param].toFixed(2)}% (Ziel: ${ziele[param]}%, Abweichung: ${(abweichung * 100).toFixed(0)}%)`);
+                    }
+                }
+            });
+            
+            // Nur Optionen aufnehmen, die:
+            // 1. Mindestens 25% Score haben
+            // 2. KEINE harten Constraints verletzen
+            if (bewertung.score > 25 && !verletzt_constraint) {
+                let materialLabel = '';
+                let mengenLabel = '';
+                
+                if (s3Menge > 0 && s9Menge > 0) {
+                    materialLabel = 'S III + S IX';
+                    mengenLabel = `${s3Menge.toFixed(2)} kg + ${s9Menge.toFixed(2)} kg`;
+                } else if (s3Menge > 0) {
+                    materialLabel = 'S III';
+                    mengenLabel = `${s3Menge.toFixed(2)} kg`;
+                } else {
+                    materialLabel = 'S IX';
+                    mengenLabel = `${s9Menge.toFixed(2)} kg`;
+                }
+                
+                korrekturOptionen.push({
+                    material: materialLabel,
+                    menge: s3Menge + s9Menge, // Gesamtmenge
+                    s3Menge: s3Menge,
+                    s9Menge: s9Menge,
+                    mengenLabel: mengenLabel,
+                    neueWerte: neueWerte,
+                    bewertung: bewertung,
+                    grund: `Multi-Parameter-Optimierung (${bewertung.anzahlErreicht}/5 Ziele, Score: ${bewertung.score.toFixed(0)}%)`
+                });
+            }
+        }
+    }
+    
+    console.log(`✅ ${combinationsTested} Kombinationen getestet, ${korrekturOptionen.length} valide Optionen gefunden`);
+    
+    // Filtern: Nur positive Mengen und sinnvolle Werte
+    const validOptions = korrekturOptionen.filter(opt => 
+        opt.menge > 0 && opt.menge < braetMenge * 0.5 && !isNaN(opt.menge)
+    );
+    
+    // Sortieren: Beste Kombinationen zuerst
+    validOptions.sort((a, b) => {
+        // 1. Primär nach Anzahl erreichter Ziele (wichtigster Faktor!)
+        if (a.bewertung.anzahlErreicht !== b.bewertung.anzahlErreicht) {
+            return b.bewertung.anzahlErreicht - a.bewertung.anzahlErreicht;
+        }
+        // 2. Sekundär nach Score
+        if (Math.abs(a.bewertung.score - b.bewertung.score) > 3) {
+            return b.bewertung.score - a.bewertung.score;
+        }
+        // 3. Bevorzuge Kombinationen (beide Materialien) vor Einzel-Material
+        const aIsCombination = (a.s3Menge > 0 && a.s9Menge > 0) ? 1 : 0;
+        const bIsCombination = (b.s3Menge > 0 && b.s9Menge > 0) ? 1 : 0;
+        if (aIsCombination !== bIsCombination) {
+            return bIsCombination - aIsCombination;
+        }
+        // 4. Tertiär nach geringerer Gesamtmenge
+        return a.menge - b.menge;
+    });
+    
+    // Zeige die besten 5 Optionen
+    const bestOptions = validOptions.slice(0, 5);
+    
+    // Ergebnisse anzeigen
+    const resultsDiv = document.getElementById(`korrektur-results-${index}`);
+    resultsDiv.style.display = 'block';
+    
+    if (bestOptions.length === 0) {
+        resultsDiv.innerHTML = `
+            <div class="korrektur-error">
+                <h5>⚠️ Keine passende Korrektur gefunden</h5>
+                <p>Mit den verfügbaren Materialien (S III, S IX) können die Zielwerte nicht optimal erreicht werden.</p>
+                <p><strong>Mögliche Gründe:</strong></p>
+                <ul>
+                    <li>Zielwerte sind bereits sehr nah an den aktuellen Werten</li>
+                    <li>Die Material-Eigenschaften passen nicht zu deinen Zielen</li>
+                    <li>Die Differenz zwischen Ist und Soll ist zu groß für eine einfache Korrektur</li>
+                </ul>
+                <p><strong>💡 Tipp:</strong> Versuche die Zielwerte anzupassen oder prüfe deine Ausgangswerte.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let optionsHTML = bestOptions.map((opt, i) => {
+        // Kombinationen besonders hervorheben
+        const isCombination = opt.s3Menge > 0 && opt.s9Menge > 0;
+        const combinationBadge = isCombination ? '<span class="badge-combination">🌟 Kombination</span>' : '';
+        
+        return `
+        <div class="korrektur-option ${i === 0 ? 'recommended' : ''} ${isCombination ? 'is-combination' : ''}">
+            <div class="option-header">
+                <h6>${i === 0 ? '⭐ ' : ''}Option ${i + 1}: ${opt.material}</h6>
+                ${i === 0 ? '<span class="badge-recommended">Empfohlen</span>' : ''}
+                ${combinationBadge}
+            </div>
+            <div class="option-details">
+                <div class="option-menge">
+                    <span class="label">Hinzufügen:</span>
+                    <span class="value">${opt.mengenLabel}</span>
+                </div>
+                <div class="option-grund">
+                    <span class="label">Zielerreichung:</span>
+                    <span class="value">${opt.bewertung.anzahlErreicht}/5 Ziele (${opt.bewertung.score.toFixed(0)}% Match)</span>
+                </div>
+            </div>
+            <div class="option-results">
+                ${['be', 'beffe', 'protein', 'fat', 'water'].map(param => {
+                    const check = opt.bewertung.checks[param];
+                    const paramNames = { be: 'BE%', beffe: 'BEFFE%', protein: 'Eiweiß%', fat: 'Fett%', water: 'Wasser%' };
+                    const wert = opt.neueWerte[param].toFixed(2);
+                    const status = check.erreicht ? 'status-ok' : 'status-warning';
+                    const icon = check.erreicht ? '✅' : '⚠️';
+                    
+                    let hint = '';
+                    if (check.mode === 'target') {
+                        hint = `Ziel: ${check.ziel.toFixed(1)}%`;
+                    } else if (check.mode === 'minimize') {
+                        const change = check.verbesserungPercent.toFixed(1);
+                        hint = `${change}% ${change > 0 ? '↓' : '↑'} (war: ${check.alt.toFixed(2)}%)`;
+                    } else if (check.mode === 'maximize') {
+                        const change = check.verbesserungPercent.toFixed(1);
+                        hint = `${change}% ${change > 0 ? '↑' : '↓'} (war: ${check.alt.toFixed(2)}%)`;
+                    }
+                    
+                    return `
+                        <div class="result-item">
+                            <span class="result-label">${paramNames[param]}:</span>
+                            <span class="result-value ${status}">
+                                ${wert}% ${icon}
+                            </span>
+                            <span class="result-hint">${hint}</span>
+                        </div>
+                    `;
+                }).join('')}
+                <div class="result-item">
+                    <span class="result-label">Neue Gesamt-Menge:</span>
+                    <span class="result-value">${(braetMenge + opt.menge).toFixed(2)} kg</span>
+                    <span class="result-hint">(+${((opt.menge / braetMenge) * 100).toFixed(1)}%)</span>
+                </div>
+            </div>
+        </div>
+    `;
+    }).join('');
+    
+    resultsDiv.innerHTML = `
+        <div class="korrektur-header">
+            <h5>💡 Korrektur-Empfehlungen</h5>
+            <p>Basierend auf ${braetMenge} kg Brät mit BE: ${braetValues.be.toFixed(2)}%, BEFFE: ${braetValues.beffe.toFixed(2)}%</p>
+        </div>
+        
+        ${optionsHTML}
+        
+        <div class="korrektur-info">
+            <p><strong>ℹ️ Hinweis:</strong> Die Empfehlungen basieren auf deinen Zielwerten und den aktuellen Material-Eigenschaften.</p>
+            <p>Prüfe nach der Zugabe die Werte erneut mit dem FOSS Food Scan!</p>
+        </div>
+    `;
+}

@@ -27,6 +27,9 @@
                     <h1>Endprodukt-Herstellung</h1>
                     <p>Optimiere deine Rohstoffe für maximale Wasser-Schüttung</p>
                 </div>
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()" aria-label="Dark Mode umschalten" title="Dark Mode (Strg+D)">
+                    <span class="dark-mode-icon" aria-hidden="true">🌙</span>
+                </button>
                 <button class="settings-btn" onclick="openSettingsModal()" aria-label="Einstellungen öffnen">
                     <span class="settings-icon" aria-hidden="true">⚙️</span>
                 </button>
@@ -70,7 +73,18 @@
                             </div>
                             <div class="input-group">
                                 <label for="current-be-0">BE - Bindegewebseiweiß (%)</label>
-                                <input type="number" id="current-be-0" value="1.0" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(0); updateTotalMixture()" aria-describedby="be-help-0">
+                                <input type="number" id="current-be-0" value="1.0" step="0.1" min="0" max="100" oninput="applyGewuerzKorrektur(0)" aria-describedby="be-help-0">
+                                <div class="gewuerz-korrektur-box">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="gewuerz-toggle-0" onchange="applyGewuerzKorrektur(0)">
+                                        <span>Standard-Gewürze enthalten? (BE-Korrektur: -0.84%)</span>
+                                    </label>
+                                    <div class="korrektur-display" id="be-korrektur-display-0" style="display: none;">
+                                        <span class="original-value">Original: <strong id="be-original-0">-</strong></span>
+                                        <span class="arrow">→</span>
+                                        <span class="corrected-value">Korrigiert: <strong id="be-corrected-0">-</strong></span>
+                                    </div>
+                                </div>
                             </div>
                             <div class="input-group">
                                 <label for="current-fat-0">Fett (%)</label>
@@ -105,7 +119,7 @@
                 <div class="total-mixture" id="total-mixture" role="region" aria-labelledby="mixture-title">
                     <h3 id="mixture-title">
                         <span class="mixture-icon" aria-hidden="true">🧮</span>
-                        Gesamt-Mischung
+                        Gesamt-Mischung (Rohware)
                     </h3>
                     <div class="mixture-stats" id="mixture-stats">
                         <div class="stat-item">
@@ -148,6 +162,39 @@
                             <span class="stat-label">Gewürz-Kosten:</span>
                             <span class="stat-value" id="total-spice-cost">37.50€</span>
                         </div>
+                    </div>
+                    
+                    <!-- Fertigware-Prognose -->
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+                        <h4 style="margin: 0 0 15px 0; color: #10b981; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
+                            <span aria-hidden="true">🏭</span>
+                            Erwartete Fertigware (nach Produktion)
+                        </h4>
+                        <div class="mixture-stats" id="fertigware-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Eiweiß (Fertig):</span>
+                                <span class="stat-value" id="fertig-protein">—</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Fett (Fertig):</span>
+                                <span class="stat-value" id="fertig-fat">—</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Wasser (Fertig):</span>
+                                <span class="stat-value" id="fertig-water">—</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">BE (Fertig):</span>
+                                <span class="stat-value" id="fertig-be">—</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">BEFFE (Fertig):</span>
+                                <span class="stat-value" id="fertig-beffe">—</span>
+                            </div>
+                        </div>
+                        <p style="margin-top: 10px; font-size: 0.85rem; color: #6b7280; font-style: italic;">
+                            ℹ️ Prognose basiert auf durchschnittlichen Produktions-Verlusten aus Food Scan Messungen
+                        </p>
                     </div>
                 </div>
             </section>
@@ -214,7 +261,11 @@
                 </button>
             </div>
 
-            <div class="error-message" id="error-message" role="alert"></div>
+            <!-- Error Message mit verbessertem Design -->
+            <div class="error-message" id="error-message" role="alert" aria-live="assertive"></div>
+            
+            <!-- Success Message -->
+            <div class="success-message" id="success-message" role="status" aria-live="polite"></div>
 
             <!-- Ergebnisse Section -->
             <section class="section suggestions-section" id="suggestions-section">
@@ -253,6 +304,23 @@
         </main>
     </div>
 
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3 id="loading-title">Berechnung läuft...</h3>
+            <p id="loading-message">Optimale Rezeptur wird ermittelt</p>
+            <div class="calculation-progress">
+                <div class="calculation-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Hinweis -->
+    <div class="keyboard-hint" id="keyboard-hint" onclick="toggleKeyboardHelp()">
+        ⌨️ Shortcuts verfügbar
+    </div>
+
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
@@ -272,6 +340,9 @@
                 </button>
                 <button class="tab-btn" onclick="showTab('settings')" data-tab="settings">
                     🔧 Erweitert
+                </button>
+                <button class="tab-btn" onclick="showTab('validation')" data-tab="validation">
+                    🧪 Validierung
                 </button>
             </div>
             
@@ -317,10 +388,6 @@
                         <div class="setting-item">
                             <label for="tolerance-fat">Fett-Toleranz (%)</label>
                             <input type="number" id="tolerance-fat" value="1.0" step="0.1" min="0" max="5">
-                        </div>
-                        <div class="setting-item">
-                            <label for="tolerance-water">Wasser-Toleranz (%)</label>
-                            <input type="number" id="tolerance-water" value="2.0" step="0.1" min="0" max="10">
                         </div>
                         <div class="setting-item">
                             <label for="tolerance-beffe">BEFFE-Toleranz (%)</label>
@@ -412,6 +479,67 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Validierungs-Tab -->
+                <div id="validation-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h3>🧪 Gewürz-Validierung</h3>
+                        <p class="section-description">Vergleich der 3 Test-Chargen: Gemessene vs. Berechnete Werte</p>
+                    </div>
+                    
+                    <div class="validation-info">
+                        <p><strong>Test-Setup:</strong> Lyoner-Rezeptur mit 3 verschiedenen Gewürz-Anteilen</p>
+                        <ul>
+                            <li>Halbe Gewürze: 1,87% (10 kg Charge)</li>
+                            <li>Standard: 3,75% (20 kg Charge)</li>
+                            <li>Doppelte Gewürze: 7,5% (10 kg Charge)</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="validation-results" id="validation-results">
+                        <!-- Wird dynamisch gefüllt -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
+                            <button class="calibration-btn validate" onclick="runValidation()" style="width: 100%;">
+                                <span class="btn-icon">🧪</span>
+                                <div class="btn-content">
+                                    <span class="btn-text">Validierung durchführen</span>
+                                    <span class="btn-subtitle">Test-Chargen vergleichen</span>
+                                </div>
+                            </button>
+                            <button class="calibration-btn auto" onclick="autoOptimizeSpiceProperties()" style="width: 100%;">
+                                <span class="btn-icon">🎯</span>
+                                <div class="btn-content">
+                                    <span class="btn-text">Gewürze optimieren</span>
+                                    <span class="btn-subtitle">Aus Food Scan berechnen</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="calibration-info" style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
+                        <h4>📊 Rückgerechnete Gewürz-Eigenschaften:</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px;">
+                            <div class="spec-item">
+                                <strong>BE%:</strong> 22,10%
+                            </div>
+                            <div class="spec-item">
+                                <strong>FETT%:</strong> 0,57%
+                            </div>
+                            <div class="spec-item">
+                                <strong>Wasser%:</strong> 5,77%
+                            </div>
+                            <div class="spec-item">
+                                <strong>Eiweiß%:</strong> 0,19%
+                            </div>
+                            <div class="spec-item">
+                                <strong>BEFFE%:</strong> 0%
+                            </div>
+                        </div>
+                        <p style="margin-top: 15px; font-size: 0.9rem; color: #6b7280;">
+                            ℹ️ Diese Werte wurden aus den 3 Test-Chargen rückgerechnet und in der App hinterlegt.
+                        </p>
+                    </div>
+                </div>
             </div>
             
             <div class="modal-footer">
@@ -427,6 +555,9 @@
 
     <!-- jsPDF für PDF-Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Dark Mode -->
+    <script src="dark-mode.js"></script>
     
     <!-- Hauptskript -->
     <script src="script.js"></script>
