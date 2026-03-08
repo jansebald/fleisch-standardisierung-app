@@ -1,5 +1,5 @@
 // Service Worker für PWA
-const CACHE_NAME = 'fleisch-app-v2';
+const CACHE_NAME = 'fleisch-app-v4';
 
 // Dynamische URL-Erstellung basierend auf dem aktuellen Pfad
 const getBaseUrl = () => {

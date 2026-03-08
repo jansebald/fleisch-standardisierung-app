@@ -13,51 +13,101 @@ const productSpecs = {
         name: "Lyoner",
         standardRecipe: ['s3', 's9', 'ice'], // S III + S IX + Eis/Wasser
         wasteBraet: 2.0,      // 2% Brätreste/Abfüllung
-        wasteSlicing: 9.0     // 9% Kappen/Schnitt-Verlust
+        wasteSlicing: 9.0,     // 9% Kappen/Schnitt-Verlust
+        // Brüh-Effekt: Veränderungen beim Brühen (kalibriert mit Messdaten 26.01.2026)
+        processingEffect: {
+            fatDelta: -1.885,      // Fett-Separation: -1.885%
+            waterDelta: +1.23,     // Wasser-Freisetzung: +1.23%
+            beDelta: +0.12,        // BE-Konzentration: +0.12%
+            proteinDelta: +0.175   // Protein-Konzentration: +0.175%
+        }
     },
     leberwurst: {
         protein: 14.0, fat: 28.0, water: 57.0, be: 3.5, beffe: 10.5,
         name: "Leberwurst",
         standardRecipe: ['s3', 's8', 'ice'], // S III + S VIII + Eis/Wasser
         wasteBraet: 2.0,      // 2% Brätreste/Abfüllung
-        wasteSlicing: 5.0     // 5% Kappen/Schnitt-Verlust (Schätzung)
+        wasteSlicing: 5.0,     // 5% Kappen/Schnitt-Verlust (Schätzung)
+        processingEffect: { fatDelta: 0, waterDelta: 0, beDelta: 0, proteinDelta: 0 }
     },
     bratwurst: {
         protein: 16.0, fat: 22.0, water: 61.0, be: 4.0, beffe: 12.0,
         name: "Bratwurst",
         standardRecipe: ['schulter', 's8', 'ice'], // Schulter + S VIII + Eis
         wasteBraet: 2.0,      // 2% Brätreste/Abfüllung
-        wasteSlicing: 0.0     // Keine Kappen bei Würstchen
+        wasteSlicing: 0.0,     // Keine Kappen bei Würstchen
+        processingEffect: { fatDelta: 0, waterDelta: 0, beDelta: 0, proteinDelta: 0 }
     },
     wiener: {
         protein: 13.0, fat: 20.0, water: 66.0, be: 3.0, beffe: 8.0,
         name: "Wiener Würstchen",
         standardRecipe: ['s3', 's8', 'ice'], // S III + S VIII + Eis
         wasteBraet: 2.0,      // 2% Brätreste/Abfüllung
-        wasteSlicing: 0.0     // Keine Kappen bei Würstchen
+        wasteSlicing: 0.0,     // Keine Kappen bei Würstchen
+        processingEffect: {
+            fatDelta: -1.885,
+            waterDelta: +1.23,
+            beDelta: +0.12,
+            proteinDelta: +0.175
+        }
     },
     hackfleisch: {
         protein: 18.0, fat: 15.0, water: 66.0, be: 4.5, beffe: 13.5,
         name: "Hackfleisch",
         standardRecipe: ['schulter', 'backen', 'ice'], // Schulter + Backen + Eis
         wasteBraet: 1.0,      // 1% Reste (minimal)
-        wasteSlicing: 0.0     // Keine Kappen bei Hackfleisch
+        wasteSlicing: 0.0,     // Keine Kappen bei Hackfleisch
+        processingEffect: { fatDelta: 0, waterDelta: 0, beDelta: 0, proteinDelta: 0 }
     }
 };
 
 // Standard-Rohstoffe mit Eigenschaften
 // Reihenfolge wie Food Scan Output: BE% → Fett% → Wasser% → Eiweiß% → BEFFE%
 const rawMaterials = {
-    "s3": { be: 1.17, fat: 19.66, water: 62.12, protein: 17.62, beffe: 16.45, price: 5.50, name: "S III (Food Scan)" },
+    "s3": { be: 1.218, fat: 22.562, water: 59.756, protein: 17.416, beffe: 16.2, price: 5.50, name: "S III (Food Scan)" },
     "s8": { be: 0.2, fat: 88.0, water: 8.5, protein: 2.5, beffe: 2.34, price: 3.20, name: "S VIII" },
-    "s9": { be: 2.74, fat: 65.72, water: 24.59, protein: 8.95, beffe: 6.22, price: 3.50, name: "S IX (Food Scan)" },
+    "s9": { be: 2.08, fat: 69.174, water: 22.19, protein: 9.0, beffe: 6.916, price: 3.50, name: "S IX (Food Scan)" },
     "ice": { be: 0.0, fat: 0.0, water: 100.0, protein: 0.0, beffe: 0.0, price: 0.05, name: "Eis/Wasser" },
     "schulter": { be: 1.23, fat: 11.77, water: 69.3, protein: 19.21, beffe: 17.98, price: 6.20, name: "Schulter schier" },
     "backen": { be: 2.172, fat: 45.162, water: 42.048, protein: 12.484, beffe: 10.31, price: 4.80, name: "Backen" },
     "braet": { be: 1.71, fat: 11.56, water: 71.86, protein: 13.52, beffe: 11.81, price: 7.50, name: "Fertiges Brät (Validierung)" },
-    "gewuerze": { be: 22.10, fat: 0.57, water: 5.77, protein: 0.19, beffe: 0.0, price: 15.0, name: "Gewürze & Zusatzstoffe (kalibriert)" },
+    "gewuerze": { be: 24.49, fat: 0.57, water: 5.77, protein: 0.19, beffe: 0.0, price: 15.0, waterBindingFactor: 1.2, name: "Gewürze & Zusatzstoffe (kalibriert)" },
     "custom": { be: 1.2, fat: 20.0, water: 64.0, protein: 15.0, beffe: 13.8, price: 4.00, name: "Benutzerdefiniert" }
 };
+
+// Helper-Funktion: parseFloat mit Komma-Support
+// Wandelt Kommas in Punkte um, bevor der Wert geparst wird
+function parseFloatComma(value) {
+    if (typeof value === 'string') {
+        // Ersetze Komma durch Punkt für parseFloat
+        return parseFloat(value.replace(',', '.'));
+    }
+    return parseFloat(value);
+}
+
+// Tab-Umschaltung für Mixture-Anzeige
+function switchMixtureTab(tabName) {
+    // Alle Tabs und Content-Bereiche
+    const tabs = document.querySelectorAll('.mixture-tab');
+    const contents = document.querySelectorAll('.mixture-tab-content');
+    
+    // Entferne active Klasse von allen
+    tabs.forEach(tab => tab.classList.remove('active'));
+    contents.forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+    });
+    
+    // Setze active Klasse für gewählten Tab
+    const activeTab = document.querySelector(`.mixture-tab[data-tab="${tabName}"]`);
+    const activeContent = document.querySelector(`.mixture-tab-content[data-tab-content="${tabName}"]`);
+    
+    if (activeTab) activeTab.classList.add('active');
+    if (activeContent) {
+        activeContent.classList.add('active');
+        activeContent.style.display = 'grid';
+    }
+}
 
 // App initialisieren
 document.addEventListener('DOMContentLoaded', function() {
@@ -130,12 +180,40 @@ function updateCurrentDefaults(index) {
     
     if (type !== 'custom' && rawMaterials[type]) {
         const material = rawMaterials[type];
-        document.getElementById(`current-protein-${index}`).value = material.protein.toFixed(1);
-        document.getElementById(`current-fat-${index}`).value = material.fat.toFixed(1);
-        document.getElementById(`current-water-${index}`).value = material.water.toFixed(1);
-        document.getElementById(`current-be-${index}`).value = material.be.toFixed(1);
-        // BEFFE direkt aus rawMaterials setzen (keine Berechnung mehr nötig)
-        document.getElementById(`current-beffe-manual-${index}`).value = material.beffe.toFixed(1);
+        console.log('📦 Material data:', material);
+        
+        // Komma als Dezimaltrennzeichen (deutsches Format)
+        const proteinValue = material.protein.toFixed(3).replace('.', ',');
+        const fatValue = material.fat.toFixed(3).replace('.', ',');
+        const waterValue = material.water.toFixed(3).replace('.', ',');
+        const beValue = material.be.toFixed(3).replace('.', ',');
+        const beffeValue = material.beffe.toFixed(3).replace('.', ',');
+        
+        console.log('📝 Setting values:', { proteinValue, fatValue, waterValue, beValue, beffeValue });
+        
+        const proteinEl = document.getElementById(`current-protein-${index}`);
+        const fatEl = document.getElementById(`current-fat-${index}`);
+        const waterEl = document.getElementById(`current-water-${index}`);
+        const beEl = document.getElementById(`current-be-${index}`);
+        const beffeEl = document.getElementById(`current-beffe-manual-${index}`);
+        
+        proteinEl.value = proteinValue;
+        fatEl.value = fatValue;
+        waterEl.value = waterValue;
+        beEl.value = beValue;
+        beffeEl.value = beffeValue;
+        
+        console.log('✅ Values set successfully!');
+        
+        // Verify values are actually in the DOM
+        setTimeout(() => {
+            console.log('🔍 Verifying values after 100ms:');
+            console.log('  Protein:', proteinEl.value);
+            console.log('  Fat:', fatEl.value);
+            console.log('  Water:', waterEl.value);
+            console.log('  BE:', beEl.value);
+            console.log('  BEFFE:', beffeEl.value);
+        }, 100);
     }
     
     // Spezial-Behandlung für Fertiges Brät: Zeige Rückrechnungs-UI
@@ -171,8 +249,8 @@ function applyGewuerzKorrektur(index) {
     const beOriginalSpan = document.getElementById(`be-original-${index}`);
     const beCorrectedSpan = document.getElementById(`be-corrected-${index}`);
     
-    const beOriginal = parseFloat(beInput.value) || 0;
-    const GEWUERZ_OFFSET = 0.84; // Standard-Gewürz erhöht BE um 0.84%
+    const beOriginal = parseFloatComma(beInput.value) || 0;
+    const GEWUERZ_OFFSET = 0.92; // Standard-Gewürz erhöht BE um 0.92% (24,49% × 3,75%)
     
     let beKorrigiert = beOriginal;
     
@@ -199,7 +277,7 @@ function applyGewuerzKorrektur(index) {
 
 // Aktuelle BEFFE berechnen (mit optionalem korrigiertem BE-Wert)
 function calculateCurrentBEFFE(index, beKorrigiert = null) {
-    const protein = parseFloat(document.getElementById(`current-protein-${index}`).value) || 0;
+    const protein = parseFloatComma(document.getElementById(`current-protein-${index}`).value) || 0;
     
     // Verwende korrigierten BE-Wert falls vorhanden, sonst Original
     let be;
@@ -208,11 +286,11 @@ function calculateCurrentBEFFE(index, beKorrigiert = null) {
     } else {
         const beInput = document.getElementById(`current-be-${index}`);
         const gewuerzToggle = document.getElementById(`gewuerz-toggle-${index}`);
-        be = parseFloat(beInput.value) || 0;
+        be = parseFloatComma(beInput.value) || 0;
         
         // Prüfe ob Korrektur aktiv ist
         if (gewuerzToggle && gewuerzToggle.checked) {
-            be = be - 0.84; // Gewürz-Offset
+            be = be - 0.92; // Gewürz-Offset
         }
     }
 
@@ -264,34 +342,37 @@ function addMaterial() {
                 </div>
                 <div class="input-group">
                     <label for="current-be-${newIndex}">BE - Bindegewebseiweiß (%)</label>
-                    <input type="number" id="current-be-${newIndex}" value="1.0" step="0.1" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                    <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-be-${newIndex}" value="1.0" oninput="updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-fat-${newIndex}">Fett (%)</label>
-                    <input type="number" id="current-fat-${newIndex}" value="14.5" step="0.1" oninput="updateTotalMixture()">
+                    <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-fat-${newIndex}" value="14.5" oninput="updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-water-${newIndex}">Wasser (%)</label>
-                    <input type="number" id="current-water-${newIndex}" value="67.3" step="0.1" oninput="updateTotalMixture()">
+                    <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-water-${newIndex}" value="67.3" oninput="updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-protein-${newIndex}">Eiweiß (%)</label>
-                    <input type="number" id="current-protein-${newIndex}" value="17.2" step="0.1" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                    <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-protein-${newIndex}" value="17.2" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-beffe-manual-${newIndex}">BEFFE (%)</label>
-                    <input type="number" id="current-beffe-manual-${newIndex}" value="16.4" step="0.1" oninput="updateTotalMixture()">
+                    <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-beffe-manual-${newIndex}" value="16.4" oninput="updateTotalMixture()">
                 </div>
                 <div class="input-group">
                     <label for="current-amount-${newIndex}">Verfügbare Menge (kg)</label>
                     <input type="number" id="current-amount-${newIndex}" placeholder="z.B. 500" step="10" min="0" oninput="updateTotalMixture()">
                 </div>
             </div>
-        </div>
-    </article>
+        </article>
     `;
-    
+
     container.insertAdjacentHTML('beforeend', materialHTML);
+    
+    // Lade die korrekten S III-Standardwerte (nicht die alten HTML-Defaults!)
+    updateCurrentDefaults(newIndex);
+    
     materialCount++;
     
     // Zeige Remove-Button für alle außer dem ersten
@@ -378,70 +459,83 @@ function updateTotalMixture() {
     const avgFat = totalWithSpices > 0 ? totalFatWithSpices / totalWithSpices : 0;
     const avgWater = totalWithSpices > 0 ? totalWaterWithSpices / totalWithSpices : 0;
     const avgBE = totalWithSpices > 0 ? totalBEWithSpices / totalWithSpices : 0;
-    const avgBEFFE = totalWithSpices > 0 ? totalBEFFEWithSpices / totalWithSpices : 0;
+    // BEFFE muss aus Protein und BE berechnet werden, nicht als Durchschnitt!
+    const avgBEFFE = avgProtein - avgBE;
 
     // Neue Faktoren berechnen
     const waterProteinRatio = calculateWaterToProteinRatio(avgWater, avgProtein);
     const fatProteinRatio = calculateFatToProteinRatio(avgFat, avgProtein);
 
-    // Anzeige aktualisieren - Gesamtgewicht inkl. Gewürze
-    document.getElementById('total-amount').textContent = `${totalWithSpices.toFixed(1)} kg`;
-    document.getElementById('total-protein').textContent = `${avgProtein.toFixed(1)}%`;
-    document.getElementById('total-fat').textContent = `${avgFat.toFixed(1)}%`;
-    document.getElementById('total-water').textContent = `${avgWater.toFixed(1)}%`;
-    document.getElementById('total-be').textContent = `${avgBE.toFixed(1)}%`;
-    document.getElementById('total-beffe').textContent = `${avgBEFFE.toFixed(1)}%`;
-    document.getElementById('total-water-protein-ratio').textContent = `${waterProteinRatio.toFixed(1)}`;
-    document.getElementById('total-fat-protein-ratio').textContent = `${fatProteinRatio.toFixed(1)}`;
-    document.getElementById('total-spice-amount').textContent = `${spiceAmount.toFixed(1)} kg`;
-    document.getElementById('total-spice-cost').textContent = `${spiceCost.toFixed(2)}€`;
+    // ===== TAB 1: ROHWARE (Basis ohne Gewürze) =====
+    const avgProteinRohware = totalAmount > 0 ? totalProtein / totalAmount : 0;
+    const avgFatRohware = totalAmount > 0 ? totalFat / totalAmount : 0;
+    const avgWaterRohware = totalAmount > 0 ? totalWater / totalAmount : 0;
+    const avgBERohware = totalAmount > 0 ? totalBE / totalAmount : 0;
+    // BEFFE muss aus Protein und BE berechnet werden!
+    const avgBEFFERohware = avgProteinRohware - avgBERohware;
+    const waterProteinRatioRohware = calculateWaterToProteinRatio(avgWaterRohware, avgProteinRohware);
+    const fatProteinRatioRohware = calculateFatToProteinRatio(avgFatRohware, avgProteinRohware);
 
-    // Fertigware-Prognose berechnen und anzeigen
-    const rohware = {
-        be: avgBE,
-        fat: avgFat,
-        water: avgWater,
-        protein: avgProtein,
-        beffe: avgBEFFE
+    document.getElementById('rohware-amount').textContent = `${totalAmount.toFixed(1)} kg`;
+    document.getElementById('rohware-protein').textContent = `${avgProteinRohware.toFixed(1)}%`;
+    document.getElementById('rohware-fat').textContent = `${avgFatRohware.toFixed(1)}%`;
+    document.getElementById('rohware-water').textContent = `${avgWaterRohware.toFixed(1)}%`;
+    document.getElementById('rohware-be').textContent = `${avgBERohware.toFixed(1)}%`;
+    document.getElementById('rohware-beffe').textContent = `${avgBEFFERohware.toFixed(1)}%`;
+    document.getElementById('rohware-water-protein-ratio').textContent = waterProteinRatioRohware.toFixed(1);
+    document.getElementById('rohware-fat-protein-ratio').textContent = fatProteinRatioRohware.toFixed(1);
+
+    // ===== TAB 2: BRÄT (mit Gewürzen + Wasser-Bindung) =====
+    const baseMix = {
+        protein: avgProteinRohware,
+        fat: avgFatRohware,
+        water: avgWaterRohware,
+        be: avgBERohware,
+        beffe: avgBEFFERohware,
+        amount: totalAmount
     };
-    const fertigware = calculateFertigware(rohware);
+    const braetMix = applySpicesToMix(baseMix, totalAmount);
+    const waterProteinRatioBraet = calculateWaterToProteinRatio(braetMix.water, braetMix.protein);
+    const fatProteinRatioBraet = calculateFatToProteinRatio(braetMix.fat, braetMix.protein);
+
+    document.getElementById('braet-amount').textContent = `${braetMix.amount.toFixed(1)} kg`;
+    document.getElementById('braet-protein').textContent = `${braetMix.protein.toFixed(1)}%`;
+    document.getElementById('braet-fat').textContent = `${braetMix.fat.toFixed(1)}%`;
+    document.getElementById('braet-water').textContent = `${braetMix.water.toFixed(1)}%`;
+    document.getElementById('braet-be').textContent = `${braetMix.be.toFixed(1)}%`;
+    document.getElementById('braet-beffe').textContent = `${braetMix.beffe.toFixed(1)}%`;
+    document.getElementById('braet-water-protein-ratio').textContent = waterProteinRatioBraet.toFixed(1);
+    document.getElementById('braet-fat-protein-ratio').textContent = fatProteinRatioBraet.toFixed(1);
+    document.getElementById('braet-spice-amount').textContent = `${braetMix.spiceAmount.toFixed(2)} kg`;
+    document.getElementById('braet-bound-water').textContent = `${(braetMix.boundWater * braetMix.amount / 100).toFixed(2)} kg`;
+
+    // ===== TAB 3: FERTIGWARE (mit Brüh-Effekt) =====
+    const fertigwareMix = calculateFertigware(braetMix);
+    const waterProteinRatioFertig = calculateWaterToProteinRatio(fertigwareMix.water, fertigwareMix.protein);
+    const fatProteinRatioFertig = calculateFatToProteinRatio(fertigwareMix.fat, fertigwareMix.protein);
+
+    document.getElementById('fertigware-amount').textContent = `${braetMix.amount.toFixed(1)} kg`;
+    document.getElementById('fertigware-protein').textContent = `${fertigwareMix.protein.toFixed(1)}%`;
+    document.getElementById('fertigware-fat').textContent = `${fertigwareMix.fat.toFixed(1)}%`;
+    document.getElementById('fertigware-water').textContent = `${fertigwareMix.water.toFixed(1)}%`;
+    document.getElementById('fertigware-be').textContent = `${fertigwareMix.be.toFixed(1)}%`;
+    document.getElementById('fertigware-beffe').textContent = `${fertigwareMix.beffe.toFixed(1)}%`;
+    document.getElementById('fertigware-water-protein-ratio').textContent = waterProteinRatioFertig.toFixed(1);
+    document.getElementById('fertigware-fat-protein-ratio').textContent = fatProteinRatioFertig.toFixed(1);
+
+    // Farbkodierung für Grenzwerte (Brät-Werte)
+    const waterProteinElement = document.getElementById('braet-water-protein-ratio');
+    const fatProteinElement = document.getElementById('braet-fat-protein-ratio');
     
-    document.getElementById('fertig-protein').textContent = `${fertigware.protein.toFixed(1)}%`;
-    document.getElementById('fertig-fat').textContent = `${fertigware.fat.toFixed(1)}%`;
-    document.getElementById('fertig-water').textContent = `${fertigware.water.toFixed(1)}%`;
-    document.getElementById('fertig-be').textContent = `${fertigware.be.toFixed(1)}%`;
-    document.getElementById('fertig-beffe').textContent = `${fertigware.beffe.toFixed(1)}%`;
-    document.getElementById('total-be').textContent = `${avgBE.toFixed(1)}%`;
-    document.getElementById('total-beffe').textContent = `${avgBEFFE.toFixed(1)}%`;
-
-    // Neue Faktoren mit Farbkodierung
-    const waterProteinElement = document.getElementById('total-water-protein-ratio');
-    const fatProteinElement = document.getElementById('total-fat-protein-ratio');
-
-    waterProteinElement.textContent = waterProteinRatio.toFixed(1);
-    fatProteinElement.textContent = fatProteinRatio.toFixed(1);
-
-    // Gewürz-Anzeigen aktualisieren
-    const spiceAmountElement = document.getElementById('total-spice-amount');
-    const spiceCostElement = document.getElementById('total-spice-cost');
-
-    if (spiceAmountElement) {
-        spiceAmountElement.textContent = `${spiceAmount.toFixed(1)} kg`;
-    }
-    if (spiceCostElement) {
-        spiceCostElement.textContent = `${spiceCost.toFixed(2)}€`;
-    }
-
-    // Farbkodierung für Grenzwerte
-    if (waterProteinRatio <= 5.5) {
+    if (waterProteinElement && waterProteinRatio <= 5.5) {
         waterProteinElement.style.color = '#10b981'; // Grün
-    } else {
+    } else if (waterProteinElement) {
         waterProteinElement.style.color = '#ef4444'; // Rot
     }
 
-    if (fatProteinRatio <= 3.2) {
+    if (fatProteinElement && fatProteinRatio <= 3.2) {
         fatProteinElement.style.color = '#10b981'; // Grün
-    } else {
+    } else if (fatProteinElement) {
         fatProteinElement.style.color = '#ef4444'; // Rot
     }
 }
@@ -471,22 +565,22 @@ function getAllMaterials() {
             }
 
             // BE-Wert mit Gewürz-Korrektur lesen
-            let beValue = parseFloat(beElement.value) || 0;
+            let beValue = parseFloatComma(beElement.value) || 0;
             const gewuerzToggle = document.getElementById(`gewuerz-toggle-${index}`);
             if (gewuerzToggle && gewuerzToggle.checked) {
-                beValue = beValue - 0.84; // Gewürz-Offset abziehen
+                beValue = beValue - 0.92; // Gewürz-Offset abziehen
             }
 
             materials.push({
                 index: parseInt(index),
                 type: type,
                 name: rawMaterials[type]?.name || 'Benutzerdefiniert',
-                protein: parseFloat(proteinElement.value) || 0,
-                fat: parseFloat(fatElement.value) || 0,
-                water: parseFloat(waterElement.value) || 0,
+                protein: parseFloatComma(proteinElement.value) || 0,
+                fat: parseFloatComma(fatElement.value) || 0,
+                water: parseFloatComma(waterElement.value) || 0,
                 be: beValue, // Verwende korrigierten BE-Wert!
-                amount: parseFloat(amountElement.value) || 0,
-                beffe: parseFloat(beffeElement.value) || 0,
+                amount: parseFloatComma(amountElement.value) || 0,
+                beffe: parseFloatComma(beffeElement.value) || 0,
                 price: rawMaterials[type]?.price || 4.00
             });
         }
@@ -552,14 +646,16 @@ function calculateCurrentMixture(materials) {
     const fat = totalFat / totalAmount;
     const water = totalWater / totalAmount;
 
+    const be = totalBE / totalAmount;
+    
     return {
         type: 'mixed',
         name: 'Gesamt-Mischung',
         protein: protein,
         fat: fat,
         water: water,
-        be: totalBE / totalAmount,
-        beffe: totalBEFFE / totalAmount,
+        be: be,
+        beffe: protein - be, // BEFFE = Protein - BE!
         amount: totalAmount,
         price: totalCost / totalAmount,
         waterProteinRatio: calculateWaterToProteinRatio(water, protein),
@@ -793,8 +889,8 @@ function getSpiceSettings() {
     const spiceCostElement = document.getElementById('spice-cost');
 
     return {
-        factor: spiceFactorElement ? parseFloat(spiceFactorElement.value) / 100 : 0.0346, // 3.46% default
-        cost: spiceCostElement ? parseFloat(spiceCostElement.value) : 15.0 // 15€/kg default
+        factor: spiceFactorElement ? parseFloatComma(spiceFactorElement.value) / 100 : 0.0346, // 3.46% default
+        cost: spiceCostElement ? parseFloatComma(spiceCostElement.value) : 15.0 // 15€/kg default
     };
 }
 
@@ -851,19 +947,55 @@ function applySpicesToMix(baseMix, baseMixAmount) {
     const spiceMaterial = rawMaterials.gewuerze;
     const totalAmount = baseMixAmount + spiceAmount;
 
+    // Wasser-Bindungseffekt: Gewürze binden Wasser in der Mischung
+    // Das gebundene Wasser ist physikalisch vorhanden, aber nicht als "freies" Wasser messbar
+    const waterBindingFactor = spiceMaterial.waterBindingFactor || 0;
+    const boundWater = (spiceAmount / totalAmount) * waterBindingFactor; // In Prozent der Gesamtmasse
+    
+    // Berechne "freies" (messbares) Wasser
+    const totalWater = (baseMix.water * baseMixAmount + spiceMaterial.water * spiceAmount) / totalAmount;
+    const freeWater = totalWater - boundWater;
+
     // Neue Nährstoffwerte MIT Gewürzen berechnen
+    const protein = (baseMix.protein * baseMixAmount + spiceMaterial.protein * spiceAmount) / totalAmount;
+    const be = (baseMix.be * baseMixAmount + spiceMaterial.be * spiceAmount) / totalAmount;
+    
     const mixWithSpices = {
-        protein: (baseMix.protein * baseMixAmount + spiceMaterial.protein * spiceAmount) / totalAmount,
+        protein: protein,
         fat: (baseMix.fat * baseMixAmount + spiceMaterial.fat * spiceAmount) / totalAmount,
-        water: (baseMix.water * baseMixAmount + spiceMaterial.water * spiceAmount) / totalAmount,
-        be: (baseMix.be * baseMixAmount + spiceMaterial.be * spiceAmount) / totalAmount,
-        beffe: ((baseMix.beffe || 0) * baseMixAmount + spiceMaterial.beffe * spiceAmount) / totalAmount,
+        water: freeWater, // ANGEPASST: Nur freies (messbares) Wasser
+        be: be,
+        beffe: protein - be, // BEFFE = Protein - BE!
         amount: totalAmount,
         spiceAmount: spiceAmount,
+        boundWater: boundWater, // NEU: Gespeichert für Dokumentation
         price: ((baseMix.price || 0) * baseMixAmount + spiceMaterial.price * spiceAmount) / totalAmount
     };
 
     return mixWithSpices;
+}
+
+// Brüh-Effekt anwenden (Veränderungen beim Brühen/Kochen)
+// Modelliert Fett-Separation, Wasser-Freisetzung und Nährstoff-Konzentration
+function applyProcessingEffect(braetMix, productType) {
+    const spec = productSpecs[productType];
+    if (!spec || !spec.processingEffect) {
+        return braetMix; // Kein Processing Effect definiert
+    }
+
+    const effect = spec.processingEffect;
+    
+    // Wende prozentuale Veränderungen an (absolute Deltas)
+    const processedMix = {
+        ...braetMix,
+        fat: braetMix.fat + effect.fatDelta,
+        water: braetMix.water + effect.waterDelta,
+        be: braetMix.be + effect.beDelta,
+        protein: braetMix.protein + effect.proteinDelta,
+        beffe: (braetMix.protein + effect.proteinDelta) - (braetMix.be + effect.beDelta) // BEFFE neu berechnen
+    };
+
+    return processedMix;
 }
 
 // Erweiterte Gewürz-Funktionen
@@ -883,9 +1015,9 @@ function toggleAdvancedSpices() {
 }
 
 function updateAdvancedSpices() {
-    const salt = parseFloat(document.getElementById('spice-salt')?.value || 0);
-    const pepper = parseFloat(document.getElementById('spice-pepper')?.value || 0);
-    const others = parseFloat(document.getElementById('spice-others')?.value || 0);
+    const salt = parseFloatComma(document.getElementById('spice-salt')?.value || 0);
+    const pepper = parseFloatComma(document.getElementById('spice-pepper')?.value || 0);
+    const others = parseFloatComma(document.getElementById('spice-others')?.value || 0);
 
     const totalPercentage = salt + pepper + others;
 
@@ -902,9 +1034,9 @@ function updateAdvancedSpices() {
     }
 
     // Berechne gewichtete Durchschnittskosten
-    const saltCost = parseFloat(document.getElementById('spice-salt-cost')?.value || 0);
-    const pepperCost = parseFloat(document.getElementById('spice-pepper-cost')?.value || 0);
-    const othersCost = parseFloat(document.getElementById('spice-others-cost')?.value || 0);
+    const saltCost = parseFloatComma(document.getElementById('spice-salt-cost')?.value || 0);
+    const pepperCost = parseFloatComma(document.getElementById('spice-pepper-cost')?.value || 0);
+    const othersCost = parseFloatComma(document.getElementById('spice-others-cost')?.value || 0);
 
     let avgCost = 0;
     if (totalPercentage > 0) {
@@ -928,13 +1060,13 @@ function getAdvancedSpiceSettings() {
         return getSpiceSettings(); // Fallback zum einfachen Modus
     }
 
-    const salt = parseFloat(document.getElementById('spice-salt')?.value || 0) / 100;
-    const pepper = parseFloat(document.getElementById('spice-pepper')?.value || 0) / 100;
-    const others = parseFloat(document.getElementById('spice-others')?.value || 0) / 100;
+    const salt = parseFloatComma(document.getElementById('spice-salt')?.value || 0) / 100;
+    const pepper = parseFloatComma(document.getElementById('spice-pepper')?.value || 0) / 100;
+    const others = parseFloatComma(document.getElementById('spice-others')?.value || 0) / 100;
 
-    const saltCost = parseFloat(document.getElementById('spice-salt-cost')?.value || 0);
-    const pepperCost = parseFloat(document.getElementById('spice-pepper-cost')?.value || 0);
-    const othersCost = parseFloat(document.getElementById('spice-others-cost')?.value || 0);
+    const saltCost = parseFloatComma(document.getElementById('spice-salt-cost')?.value || 0);
+    const pepperCost = parseFloatComma(document.getElementById('spice-pepper-cost')?.value || 0);
+    const othersCost = parseFloatComma(document.getElementById('spice-others-cost')?.value || 0);
 
     const totalFactor = salt + pepper + others;
     const avgCost = totalFactor > 0 ? (salt * saltCost + pepper * pepperCost + others * othersCost) / totalFactor : 0;
@@ -953,12 +1085,12 @@ function getAdvancedSpiceSettings() {
 // Zielspezifikationen lesen
 function getTargetSpecs() {
     return {
-        protein: parseFloat(document.getElementById('target-protein').value),
-        fat: parseFloat(document.getElementById('target-fat').value),
-        water: parseFloat(document.getElementById('target-water').value),
-        be: parseFloat(document.getElementById('target-be').value),
-        beffe: parseFloat(document.getElementById('target-beffe').value),
-        quantity: parseFloat(document.getElementById('target-quantity').value)
+        protein: parseFloatComma(document.getElementById('target-protein').value),
+        fat: parseFloatComma(document.getElementById('target-fat').value),
+        water: parseFloatComma(document.getElementById('target-water').value),
+        be: parseFloatComma(document.getElementById('target-be').value),
+        beffe: parseFloatComma(document.getElementById('target-beffe').value),
+        quantity: parseFloatComma(document.getElementById('target-quantity').value)
     };
 }
 
@@ -1593,7 +1725,7 @@ function calculateMixFromPercentages(lean, fat, water, totalAmount) {
     const fatContent = (leanMat.fat * leanWeight + fatMat.fat * fatWeight + waterMat.fat * waterWeight) / totalAmount;
     const waterContent = (leanMat.water * leanWeight + fatMat.water * fatWeight + waterMat.water * waterWeight) / totalAmount;
     const be = (leanMat.be * leanWeight + fatMat.be * fatWeight + waterMat.be * waterWeight) / totalAmount;
-    const beffe = (leanMat.beffe * leanWeight + fatMat.beffe * fatWeight + waterMat.beffe * waterWeight) / totalAmount;
+    const beffe = protein - be; // BEFFE = Protein - BE!
 
     return {
         protein: protein,
@@ -3715,12 +3847,12 @@ function loadRecipeIntoMaterials() {
         if (typeSelect) {
             const key = typeSelect.value;
             currentUserInputs[key] = {
-                be: parseFloat(document.getElementById(`current-be-${index}`)?.value || 0),
-                fat: parseFloat(document.getElementById(`current-fat-${index}`)?.value || 0),
-                water: parseFloat(document.getElementById(`current-water-${index}`)?.value || 0),
-                protein: parseFloat(document.getElementById(`current-protein-${index}`)?.value || 0),
-                beffe: parseFloat(document.getElementById(`current-beffe-manual-${index}`)?.value || 0),
-                amount: parseFloat(document.getElementById(`current-amount-${index}`)?.value || 0)
+                be: parseFloatComma(document.getElementById(`current-be-${index}`)?.value || 0),
+                fat: parseFloatComma(document.getElementById(`current-fat-${index}`)?.value || 0),
+                water: parseFloatComma(document.getElementById(`current-water-${index}`)?.value || 0),
+                protein: parseFloatComma(document.getElementById(`current-protein-${index}`)?.value || 0),
+                beffe: parseFloatComma(document.getElementById(`current-beffe-manual-${index}`)?.value || 0),
+                amount: parseFloatComma(document.getElementById(`current-amount-${index}`)?.value || 0)
             };
         }
     });
@@ -3771,23 +3903,23 @@ function loadRecipeIntoMaterials() {
                     </div>
                     <div class="input-group">
                         <label for="current-be-${newIndex}">BE - Bindegewebseiweiß (%)</label>
-                        <input type="number" id="current-be-${newIndex}" value="${values.be.toFixed(1)}" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-be-${newIndex}" value="${values.be.toFixed(1)}" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
                     </div>
                     <div class="input-group">
                         <label for="current-fat-${newIndex}">Fett (%)</label>
-                        <input type="number" id="current-fat-${newIndex}" value="${values.fat.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-fat-${newIndex}" value="${values.fat.toFixed(1)}" oninput="updateTotalMixture()">
                     </div>
                     <div class="input-group">
                         <label for="current-water-${newIndex}">Wasser (%)</label>
-                        <input type="number" id="current-water-${newIndex}" value="${values.water.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-water-${newIndex}" value="${values.water.toFixed(1)}" oninput="updateTotalMixture()">
                     </div>
                     <div class="input-group">
                         <label for="current-protein-${newIndex}">Eiweiß (%)</label>
-                        <input type="number" id="current-protein-${newIndex}" value="${values.protein.toFixed(1)}" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-protein-${newIndex}" value="${values.protein.toFixed(1)}" oninput="calculateCurrentBEFFE(${newIndex}); updateTotalMixture()">
                     </div>
                     <div class="input-group">
                         <label for="current-beffe-manual-${newIndex}">BEFFE (%)</label>
-                        <input type="number" id="current-beffe-manual-${newIndex}" value="${values.beffe.toFixed(1)}" step="0.1" min="0" max="100" oninput="updateTotalMixture()">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-beffe-manual-${newIndex}" value="${values.beffe.toFixed(1)}" oninput="updateTotalMixture()">
                     </div>
                     <div class="input-group">
                         <label for="current-amount-${newIndex}">Verfügbare Menge (kg)</label>
@@ -3822,14 +3954,14 @@ function loadRecipeIntoMaterials() {
 function findRawMaterialKeyByName(name) {
     // Mapping von Namen zu keys
     const nameToKey = {
-        'S III': 's3',
+        'S III (Food Scan)': 's3', 'S III': 's3',
         'S VIII': 's8',
-        'S IX': 's9',
-        'Wasser/Eis': 'ice',
+        'S IX (Food Scan)': 's9', 'S IX': 's9',
+        'Wasser/Eis': 'ice', 'Eis/Wasser': 'ice',
         'Schulter schier': 'schulter',
         'Backen': 'backen',
-        'Fertiges Brät': 'braet',
-        'Gewürze & Zusatzstoffe': 'gewuerze'
+        'Fertiges Brät (Validierung)': 'braet', 'Fertiges Brät': 'braet',
+        'Gewürze & Zusatzstoffe (kalibriert)': 'gewuerze', 'Gewürze & Zusatzstoffe': 'gewuerze'
     };
 
     return nameToKey[name] || 'custom';
@@ -4097,7 +4229,7 @@ function exportToPDF() {
         yPos += 6;
         doc.text(sanitizeTextForPDF(`BEFFE: ${finalMix.beffe.toFixed(1)}%`), 20, yPos);
         yPos += 6;
-        doc.text(sanitizeTextForPDF(`Gesamtkosten: ${selectedSuggestion.cost.toFixed(2)} EUR (${selectedSuggestion.costPerKg.toFixed(2)} EUR/kg)`), 20, yPos);
+        doc.text(sanitizeTextForPDF(`Gesamtkosten: ${(selectedSuggestion.totalCost || selectedSuggestion.cost || 0).toFixed(2)} EUR (${selectedSuggestion.costPerKg.toFixed(2)} EUR/kg)`), 20, yPos);
         
         // Produktionsanweisungen - auf neue Seite
         doc.addPage();
@@ -4248,8 +4380,8 @@ function findExpensiveMaterialsToReplace(current) {
             protein: mat.protein,
             fat: mat.fat,
             water: mat.water,
-            hydroxy: mat.hydroxy,
-            beffe: calculateBEFFEFromValues(mat.protein, mat.hydroxy)
+            beffe: mat.beffe,
+            be: mat.be
         }))
         .sort((a, b) => b.price - a.price); // Teuerste zuerst
 
@@ -4380,8 +4512,8 @@ function calculateMixtureAfterRemoval(currentMix, materialToRemove, removeAmount
     const newWater = (currentMix.water * currentMix.amount - removedWater) / newTotalAmount;
     const newBEFFE = (currentMix.beffe * currentMix.amount - removedBEFFE) / newTotalAmount;
 
-    const newHydroxy = (materialToRemove.hydroxy * (currentMix.amount - removeAmount)) / newTotalAmount;
-    const bindegewebsEiweiß = newHydroxy * 8;
+    const removedBE = (materialToRemove.be || 0) * removeAmount;
+    const newBE = (currentMix.be * currentMix.amount - removedBE) / newTotalAmount;
 
     return {
         protein: newProtein,
@@ -4389,9 +4521,7 @@ function calculateMixtureAfterRemoval(currentMix, materialToRemove, removeAmount
         water: newWater,
         beffe: newBEFFE,
         amount: newTotalAmount,
-        hydroxy: newHydroxy,
-        bindegewebsEiweiß: bindegewebsEiweiß,
-        be: bindegewebsEiweiß
+        be: newBE
     };
 }
 
@@ -4578,12 +4708,12 @@ function editMaterial(materialKey) {
 
 function saveMaterialEdit(materialKey) {
     const newName = document.getElementById('edit-name').value;
-    const newProtein = parseFloat(document.getElementById('edit-protein').value);
-    const newFat = parseFloat(document.getElementById('edit-fat').value);
-    const newWater = parseFloat(document.getElementById('edit-water').value);
-    const newBE = parseFloat(document.getElementById('edit-be').value);
-    const newHydroxy = parseFloat(document.getElementById('edit-hydroxy').value);
-    const newPrice = parseFloat(document.getElementById('edit-price').value);
+    const newProtein = parseFloatComma(document.getElementById('edit-protein').value);
+    const newFat = parseFloatComma(document.getElementById('edit-fat').value);
+    const newWater = parseFloatComma(document.getElementById('edit-water').value);
+    const newBE = parseFloatComma(document.getElementById('edit-be').value);
+    const newHydroxy = parseFloatComma(document.getElementById('edit-hydroxy').value);
+    const newPrice = parseFloatComma(document.getElementById('edit-price').value);
     
     // Validierung
     if (newProtein + newFat + newWater > 100) {
@@ -4629,10 +4759,10 @@ function deleteMaterial(materialKey) {
 
 function saveSettings() {
     // Toleranzen aus den Input-Feldern lesen
-    const toleranceProtein = parseFloat(document.getElementById('tolerance-protein').value);
-    const toleranceFat = parseFloat(document.getElementById('tolerance-fat').value);
-    const toleranceBeffe = parseFloat(document.getElementById('tolerance-beffe').value);
-    const spiceFactor = parseFloat(document.getElementById('spice-factor').value);
+    const toleranceProtein = parseFloatComma(document.getElementById('tolerance-protein').value);
+    const toleranceFat = parseFloatComma(document.getElementById('tolerance-fat').value);
+    const toleranceBeffe = parseFloatComma(document.getElementById('tolerance-beffe').value);
+    const spiceFactor = parseFloatComma(document.getElementById('spice-factor').value);
 
     const settings = {
         rawMaterials: rawMaterials,
@@ -4781,12 +4911,12 @@ function editProduct(productKey) {
 
 function saveProductEdit(productKey) {
     const newName = document.getElementById('edit-product-name').value;
-    const newProtein = parseFloat(document.getElementById('edit-product-protein').value);
-    const newFat = parseFloat(document.getElementById('edit-product-fat').value);
-    const newWater = parseFloat(document.getElementById('edit-product-water').value);
-    const newBeffe = parseFloat(document.getElementById('edit-product-beffe').value);
-    const newWasteBraet = parseFloat(document.getElementById('edit-product-waste-braet').value) || 0;
-    const newWasteSlicing = parseFloat(document.getElementById('edit-product-waste-slicing').value) || 0;
+    const newProtein = parseFloatComma(document.getElementById('edit-product-protein').value);
+    const newFat = parseFloatComma(document.getElementById('edit-product-fat').value);
+    const newWater = parseFloatComma(document.getElementById('edit-product-water').value);
+    const newBeffe = parseFloatComma(document.getElementById('edit-product-beffe').value);
+    const newWasteBraet = parseFloatComma(document.getElementById('edit-product-waste-braet').value) || 0;
+    const newWasteSlicing = parseFloatComma(document.getElementById('edit-product-waste-slicing').value) || 0;
 
     // Bewahre standardRecipe wenn vorhanden
     const oldProduct = productSpecs[productKey];
@@ -4932,12 +5062,12 @@ function addNewMaterial() {
 function saveNewMaterial() {
     const key = document.getElementById('new-material-key').value;
     const name = document.getElementById('new-material-name').value;
-    const protein = parseFloat(document.getElementById('new-material-protein').value);
-    const fat = parseFloat(document.getElementById('new-material-fat').value);
-    const water = parseFloat(document.getElementById('new-material-water').value);
-    const be = parseFloat(document.getElementById('new-material-be').value);
-    const hydroxy = parseFloat(document.getElementById('new-material-hydroxy').value);
-    const price = parseFloat(document.getElementById('new-material-price').value);
+    const protein = parseFloatComma(document.getElementById('new-material-protein').value);
+    const fat = parseFloatComma(document.getElementById('new-material-fat').value);
+    const water = parseFloatComma(document.getElementById('new-material-water').value);
+    const be = parseFloatComma(document.getElementById('new-material-be').value);
+    const hydroxy = parseFloatComma(document.getElementById('new-material-hydroxy').value);
+    const price = parseFloatComma(document.getElementById('new-material-price').value);
     
     // Validierung
     if (rawMaterials[key]) {
@@ -5019,12 +5149,12 @@ function addNewProduct() {
 function saveNewProduct() {
     const key = document.getElementById('new-product-key').value;
     const name = document.getElementById('new-product-name').value;
-    const protein = parseFloat(document.getElementById('new-product-protein').value);
-    const fat = parseFloat(document.getElementById('new-product-fat').value);
-    const water = parseFloat(document.getElementById('new-product-water').value);
-    const beffe = parseFloat(document.getElementById('new-product-beffe').value);
-    const wasteBraet = parseFloat(document.getElementById('new-product-waste-braet').value) || 0;
-    const wasteSlicing = parseFloat(document.getElementById('new-product-waste-slicing').value) || 0;
+    const protein = parseFloatComma(document.getElementById('new-product-protein').value);
+    const fat = parseFloatComma(document.getElementById('new-product-fat').value);
+    const water = parseFloatComma(document.getElementById('new-product-water').value);
+    const beffe = parseFloatComma(document.getElementById('new-product-beffe').value);
+    const wasteBraet = parseFloatComma(document.getElementById('new-product-waste-braet').value) || 0;
+    const wasteSlicing = parseFloatComma(document.getElementById('new-product-waste-slicing').value) || 0;
 
     // Validierung
     if (productSpecs[key]) {
@@ -5049,9 +5179,9 @@ function exportSettings() {
     const settings = {
         rawMaterials: rawMaterials,
         productSpecs: productSpecs,
-        toleranceProtein: parseFloat(document.getElementById('tolerance-protein')?.value || 0.5),
-        toleranceFat: parseFloat(document.getElementById('tolerance-fat')?.value || 1.0),
-        toleranceBeffe: parseFloat(document.getElementById('tolerance-beffe')?.value || 0.5),
+        toleranceProtein: parseFloatComma(document.getElementById('tolerance-protein')?.value || 0.5),
+        toleranceFat: parseFloatComma(document.getElementById('tolerance-fat')?.value || 1.0),
+        toleranceBeffe: parseFloatComma(document.getElementById('tolerance-beffe')?.value || 0.5),
         exportDate: new Date().toISOString(),
         appVersion: "1.0.0"
     };
@@ -5360,15 +5490,14 @@ function calculateProductionFactors() {
 
 // Von Rohware auf Fertigware umrechnen
 function calculateFertigware(rohware) {
-    const factors = calculateProductionFactors();
+    // Hole das aktuell ausgewählte Produkt
+    const productElement = document.getElementById('target-product');
+    const productType = productElement ? productElement.value : 'lyoner';
     
-    return {
-        be: rohware.be + factors.be,
-        fat: rohware.fat + factors.fat,
-        water: rohware.water + factors.water,
-        protein: rohware.protein + factors.protein,
-        beffe: rohware.beffe + factors.beffe
-    };
+    // Wende den Brüh-Effekt an (neu: produktspezifischer Processing Effect)
+    const fertigware = applyProcessingEffect(rohware, productType);
+    
+    return fertigware;
 }
 
 // Gewürz-Eigenschaften automatisch optimieren und anwenden
@@ -5932,15 +6061,15 @@ function hideBraetAnalysis(index) {
 function performBraetAnalysis(index) {
     // Brät-Werte aus Eingabefeldern lesen
     const braetValues = {
-        be: parseFloat(document.getElementById(`current-be-${index}`).value) || 0,
-        fat: parseFloat(document.getElementById(`current-fat-${index}`).value) || 0,
-        water: parseFloat(document.getElementById(`current-water-${index}`).value) || 0,
-        protein: parseFloat(document.getElementById(`current-protein-${index}`).value) || 0,
-        beffe: parseFloat(document.getElementById(`current-beffe-manual-${index}`).value) || 0
+        be: parseFloatComma(document.getElementById(`current-be-${index}`).value) || 0,
+        fat: parseFloatComma(document.getElementById(`current-fat-${index}`).value) || 0,
+        water: parseFloatComma(document.getElementById(`current-water-${index}`).value) || 0,
+        protein: parseFloatComma(document.getElementById(`current-protein-${index}`).value) || 0,
+        beffe: parseFloatComma(document.getElementById(`current-beffe-manual-${index}`).value) || 0
     };
     
     // Gewürz-Anteil lesen
-    const spicePercent = parseFloat(document.getElementById(`braet-spice-percent-${index}`).value) || 0;
+    const spicePercent = parseFloatComma(document.getElementById(`braet-spice-percent-${index}`).value) || 0;
     const spicePercentage = spicePercent / 100;
     
     // Rückrechnung durchführen
@@ -6047,17 +6176,17 @@ function switchBraetTab(index, tabName) {
 function calculateBraetKorrektur(index) {
     // Aktuelle Brät-Werte
     const braetValues = {
-        be: parseFloat(document.getElementById(`current-be-${index}`).value) || 0,
-        beffe: parseFloat(document.getElementById(`current-beffe-manual-${index}`).value) || 0,
-        protein: parseFloat(document.getElementById(`current-protein-${index}`).value) || 0,
-        fat: parseFloat(document.getElementById(`current-fat-${index}`).value) || 0,
-        water: parseFloat(document.getElementById(`current-water-${index}`).value) || 0
+        be: parseFloatComma(document.getElementById(`current-be-${index}`).value) || 0,
+        beffe: parseFloatComma(document.getElementById(`current-beffe-manual-${index}`).value) || 0,
+        protein: parseFloatComma(document.getElementById(`current-protein-${index}`).value) || 0,
+        fat: parseFloatComma(document.getElementById(`current-fat-${index}`).value) || 0,
+        water: parseFloatComma(document.getElementById(`current-water-${index}`).value) || 0
     };
     
     // Eingabedaten
-    const braetMenge = parseFloat(document.getElementById(`braet-menge-${index}`).value) || 0;
-    const ursprungBE = parseFloat(document.getElementById(`ursprung-be-${index}`).value) || 0;
-    const ursprungBEFFE = parseFloat(document.getElementById(`ursprung-beffe-${index}`).value) || 0;
+    const braetMenge = parseFloatComma(document.getElementById(`braet-menge-${index}`).value) || 0;
+    const ursprungBE = parseFloatComma(document.getElementById(`ursprung-be-${index}`).value) || 0;
+    const ursprungBEFFE = parseFloatComma(document.getElementById(`ursprung-beffe-${index}`).value) || 0;
     
     // Lese Optimierungs-Modi und Zielwerte
     const optMode = {
@@ -6068,11 +6197,11 @@ function calculateBraetKorrektur(index) {
         water: document.querySelector(`input[name="opt-mode-water-${index}"]:checked`).value
     };
     
-    const zielBE = optMode.be === 'target' ? (parseFloat(document.getElementById(`ziel-be-${index}`).value) || 0) : null;
-    const zielBEFFE = optMode.beffe === 'target' ? (parseFloat(document.getElementById(`ziel-beffe-${index}`).value) || 0) : null;
-    const zielProtein = optMode.protein === 'target' ? (parseFloat(document.getElementById(`ziel-protein-${index}`).value) || 0) : null;
-    const zielFat = optMode.fat === 'target' ? (parseFloat(document.getElementById(`ziel-fat-${index}`).value) || 0) : null;
-    const zielWater = optMode.water === 'target' ? (parseFloat(document.getElementById(`ziel-water-${index}`).value) || 0) : null;
+    const zielBE = optMode.be === 'target' ? (parseFloatComma(document.getElementById(`ziel-be-${index}`).value) || 0) : null;
+    const zielBEFFE = optMode.beffe === 'target' ? (parseFloatComma(document.getElementById(`ziel-beffe-${index}`).value) || 0) : null;
+    const zielProtein = optMode.protein === 'target' ? (parseFloatComma(document.getElementById(`ziel-protein-${index}`).value) || 0) : null;
+    const zielFat = optMode.fat === 'target' ? (parseFloatComma(document.getElementById(`ziel-fat-${index}`).value) || 0) : null;
+    const zielWater = optMode.water === 'target' ? (parseFloatComma(document.getElementById(`ziel-water-${index}`).value) || 0) : null;
     
     console.log('🎯 Optimierungs-Modi:', optMode);
     console.log('🎯 Zielwerte:', { be: zielBE, beffe: zielBEFFE, protein: zielProtein, fat: zielFat, water: zielWater });
@@ -6085,19 +6214,19 @@ function calculateBraetKorrektur(index) {
     
     // S III und S IX Werte aus Eingabefeldern lesen
     const s3 = {
-        be: parseFloat(document.getElementById(`s3-be-${index}`).value) || rawMaterials['s3'].be,
-        beffe: parseFloat(document.getElementById(`s3-beffe-${index}`).value) || rawMaterials['s3'].beffe,
-        protein: parseFloat(document.getElementById(`s3-protein-${index}`).value) || rawMaterials['s3'].protein,
-        fat: parseFloat(document.getElementById(`s3-fat-${index}`).value) || rawMaterials['s3'].fat,
-        water: parseFloat(document.getElementById(`s3-water-${index}`).value) || rawMaterials['s3'].water
+        be: parseFloatComma(document.getElementById(`s3-be-${index}`).value) || rawMaterials['s3'].be,
+        beffe: parseFloatComma(document.getElementById(`s3-beffe-${index}`).value) || rawMaterials['s3'].beffe,
+        protein: parseFloatComma(document.getElementById(`s3-protein-${index}`).value) || rawMaterials['s3'].protein,
+        fat: parseFloatComma(document.getElementById(`s3-fat-${index}`).value) || rawMaterials['s3'].fat,
+        water: parseFloatComma(document.getElementById(`s3-water-${index}`).value) || rawMaterials['s3'].water
     };
     
     const s9 = {
-        be: parseFloat(document.getElementById(`s9-be-${index}`).value) || rawMaterials['s9'].be,
-        beffe: parseFloat(document.getElementById(`s9-beffe-${index}`).value) || rawMaterials['s9'].beffe,
-        protein: parseFloat(document.getElementById(`s9-protein-${index}`).value) || rawMaterials['s9'].protein,
-        fat: parseFloat(document.getElementById(`s9-fat-${index}`).value) || rawMaterials['s9'].fat,
-        water: parseFloat(document.getElementById(`s9-water-${index}`).value) || rawMaterials['s9'].water
+        be: parseFloatComma(document.getElementById(`s9-be-${index}`).value) || rawMaterials['s9'].be,
+        beffe: parseFloatComma(document.getElementById(`s9-beffe-${index}`).value) || rawMaterials['s9'].beffe,
+        protein: parseFloatComma(document.getElementById(`s9-protein-${index}`).value) || rawMaterials['s9'].protein,
+        fat: parseFloatComma(document.getElementById(`s9-fat-${index}`).value) || rawMaterials['s9'].fat,
+        water: parseFloatComma(document.getElementById(`s9-water-${index}`).value) || rawMaterials['s9'].water
     };
     
     // Berechne benötigte Menge für S III und S IX
@@ -6413,12 +6542,143 @@ function calculateBraetKorrektur(index) {
             <h5>💡 Korrektur-Empfehlungen</h5>
             <p>Basierend auf ${braetMenge} kg Brät mit BE: ${braetValues.be.toFixed(2)}%, BEFFE: ${braetValues.beffe.toFixed(2)}%</p>
         </div>
-        
+
         ${optionsHTML}
-        
+
         <div class="korrektur-info">
             <p><strong>ℹ️ Hinweis:</strong> Die Empfehlungen basieren auf deinen Zielwerten und den aktuellen Material-Eigenschaften.</p>
             <p>Prüfe nach der Zugabe die Werte erneut mit dem FOSS Food Scan!</p>
         </div>
     `;
+}
+
+// ============================================================
+// Brät messen → Fertigware errechnen (Lyoner)
+// ============================================================
+
+function updateBraetFertigwarePreview() {
+    const be      = parseFloatComma(document.getElementById('braet-input-be').value);
+    const fat     = parseFloatComma(document.getElementById('braet-input-fat').value);
+    const water   = parseFloatComma(document.getElementById('braet-input-water').value);
+    const protein = parseFloatComma(document.getElementById('braet-input-protein').value);
+    const beffe   = parseFloatComma(document.getElementById('braet-input-beffe').value);
+
+    // Sobald alle 5 Pflicht-Werte ausgefüllt sind, sofort berechnen
+    if (!isNaN(be) && !isNaN(fat) && !isNaN(water) && !isNaN(protein) && !isNaN(beffe)) {
+        calculateFertigwareFromBraet();
+    } else {
+        document.getElementById('braet-fertigware-result').style.display = 'none';
+    }
+}
+
+function calculateFertigwareFromBraet() {
+    const be      = parseFloatComma(document.getElementById('braet-input-be').value);
+    const fat     = parseFloatComma(document.getElementById('braet-input-fat').value);
+    const water   = parseFloatComma(document.getElementById('braet-input-water').value);
+    const protein = parseFloatComma(document.getElementById('braet-input-protein').value);
+    const beffe   = parseFloatComma(document.getElementById('braet-input-beffe').value);
+    const amountRaw = document.getElementById('braet-input-amount').value.trim();
+    const amount  = amountRaw ? parseFloatComma(amountRaw) : null;
+
+    if (isNaN(be) || isNaN(fat) || isNaN(water) || isNaN(protein) || isNaN(beffe)) {
+        document.getElementById('braet-fertigware-result').style.display = 'none';
+        return;
+    }
+
+    const braetMix = { be, fat, water, protein, beffe };
+    const fw = applyProcessingEffect(braetMix, 'lyoner');
+    const spec = productSpecs['lyoner'];
+    const effect = spec.processingEffect;
+    const minBeffe = 10.0; // Leitsatz-Minimum Lyoner
+
+    const beffOk  = fw.beffe >= minBeffe;
+    const beOk    = fw.be <= spec.be;
+    const proteinOk = fw.protein >= spec.protein;
+
+    // Statusfarbe je Wert: ok = grün, bad = rot, neutral = grau
+    function cls(val, min, max) {
+        if (min !== null && val < min) return 'bad';
+        if (max !== null && val > max) return 'bad';
+        return 'ok';
+    }
+
+    // Menge / Endprodukt-Zeile (optional)
+    let amountHTML = '';
+    if (amount && !isNaN(amount) && amount > 0) {
+        const totalWaste = spec.wasteBraet + spec.wasteSlicing; // 2 + 9 = 11%
+        const endprodukt = amount * (1 - totalWaste / 100);
+        amountHTML = `
+            <div class="fw-amount-row">
+                <div class="fw-amount-item">
+                    <span class="fw-amount-label">Brät-Menge</span>
+                    <span class="fw-amount-value">${amount.toFixed(1)} kg</span>
+                </div>
+                <span class="fw-arrow">→</span>
+                <div class="fw-amount-item">
+                    <span class="fw-amount-label">Endprodukt (nach ${totalWaste}% Verlust)</span>
+                    <span class="fw-amount-value fw-highlight">${endprodukt.toFixed(1)} kg</span>
+                </div>
+            </div>`;
+    }
+
+    const html = `
+        <div class="fw-result-header">
+            <span class="fw-result-icon">🌭</span>
+            <div>
+                <h4>Vorhergesagte Fertigware – Lyoner</h4>
+                <p>Brüh-Effekt: Fett ${effect.fatDelta > 0 ? '+' : ''}${effect.fatDelta}% &nbsp;|&nbsp; Wasser ${effect.waterDelta > 0 ? '+' : ''}${effect.waterDelta}% &nbsp;|&nbsp; BE ${effect.beDelta > 0 ? '+' : ''}${effect.beDelta}% &nbsp;|&nbsp; Eiweiß ${effect.proteinDelta > 0 ? '+' : ''}${effect.proteinDelta}%</p>
+            </div>
+        </div>
+
+        <div class="fw-comparison-grid">
+            <div class="fw-col-header">Wert</div>
+            <div class="fw-col-header">Brät (gemessen)</div>
+            <div class="fw-col-header">→ Fertigware</div>
+            <div class="fw-col-header">Lyoner-Ziel</div>
+
+            <div class="fw-row-label">BE (%)</div>
+            <div class="fw-val braet">${be.toFixed(2)}</div>
+            <div class="fw-val fertig ${cls(fw.be, null, spec.be)}">${fw.be.toFixed(2)}</div>
+            <div class="fw-target">max. ${spec.be}</div>
+
+            <div class="fw-row-label">Fett (%)</div>
+            <div class="fw-val braet">${fat.toFixed(2)}</div>
+            <div class="fw-val fertig">${fw.fat.toFixed(2)}</div>
+            <div class="fw-target">${spec.fat}</div>
+
+            <div class="fw-row-label">Wasser (%)</div>
+            <div class="fw-val braet">${water.toFixed(2)}</div>
+            <div class="fw-val fertig">${fw.water.toFixed(2)}</div>
+            <div class="fw-target">${spec.water}</div>
+
+            <div class="fw-row-label">Eiweiß (%)</div>
+            <div class="fw-val braet">${protein.toFixed(2)}</div>
+            <div class="fw-val fertig ${cls(fw.protein, spec.protein, null)}">${fw.protein.toFixed(2)}</div>
+            <div class="fw-target">min. ${spec.protein}</div>
+
+            <div class="fw-row-label">BEFFE (%)</div>
+            <div class="fw-val braet">${beffe.toFixed(2)}</div>
+            <div class="fw-val fertig ${cls(fw.beffe, minBeffe, null)}">${fw.beffe.toFixed(2)}</div>
+            <div class="fw-target">min. ${minBeffe}</div>
+        </div>
+
+        ${amountHTML}
+
+        <div class="fw-status ${beffOk && beOk && proteinOk ? 'status-ok' : 'status-warn'}">
+            ${beffOk && beOk && proteinOk
+                ? `✅ Leitsatz eingehalten – BEFFE ${fw.beffe.toFixed(1)}%, BE ${fw.be.toFixed(2)}%, Eiweiß ${fw.protein.toFixed(1)}%`
+                : [
+                    !beffOk   ? `⚠️ BEFFE zu niedrig: ${fw.beffe.toFixed(1)}% &lt; ${minBeffe}%` : '',
+                    !beOk     ? `⚠️ BE zu hoch: ${fw.be.toFixed(2)}% &gt; ${spec.be}%` : '',
+                    !proteinOk? `⚠️ Eiweiß zu niedrig: ${fw.protein.toFixed(1)}% &lt; ${spec.protein}%` : ''
+                  ].filter(Boolean).join(' &nbsp;|&nbsp; ')
+            }
+        </div>
+
+        <p class="fw-calibration-note">ℹ️ Brüh-Effekt kalibriert mit Messdaten 26.01.2026 (Lyoner)</p>
+    `;
+
+    const resultDiv = document.getElementById('braet-fertigware-result');
+    resultDiv.innerHTML = html;
+    resultDiv.style.display = 'block';
 }

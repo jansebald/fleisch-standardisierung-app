@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fleisch-Standardisierung - Rohstoffberatung</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏭</text></svg>">
     
@@ -73,38 +73,27 @@
                             </div>
                             <div class="input-group">
                                 <label for="current-be-0">BE - Bindegewebseiweiß (%)</label>
-                                <input type="number" id="current-be-0" value="1.0" step="0.1" min="0" max="100" oninput="applyGewuerzKorrektur(0)" aria-describedby="be-help-0">
-                                <div class="gewuerz-korrektur-box">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="gewuerz-toggle-0" onchange="applyGewuerzKorrektur(0)">
-                                        <span>Standard-Gewürze enthalten? (BE-Korrektur: -0.84%)</span>
-                                    </label>
-                                    <div class="korrektur-display" id="be-korrektur-display-0" style="display: none;">
-                                        <span class="original-value">Original: <strong id="be-original-0">-</strong></span>
-                                        <span class="arrow">→</span>
-                                        <span class="corrected-value">Korrigiert: <strong id="be-corrected-0">-</strong></span>
-                                    </div>
-                                </div>
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-be-0" value="1.0" oninput="updateTotalMixture()" aria-describedby="be-help-0">
                             </div>
                             <div class="input-group">
                                 <label for="current-fat-0">Fett (%)</label>
-                                <input type="number" id="current-fat-0" value="14.5" step="0.1" min="0" max="100" oninput="updateTotalMixture()" aria-describedby="fat-help-0">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-fat-0" value="14.5" oninput="updateTotalMixture()" aria-describedby="fat-help-0">
                             </div>
                             <div class="input-group">
                                 <label for="current-water-0">Wasser (%)</label>
-                                <input type="number" id="current-water-0" value="67.3" step="0.1" min="0" max="100" oninput="updateTotalMixture()" aria-describedby="water-help-0">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-water-0" value="67.3" oninput="updateTotalMixture()" aria-describedby="water-help-0">
                             </div>
                             <div class="input-group">
                                 <label for="current-protein-0">Eiweiß (%)</label>
-                                <input type="number" id="current-protein-0" value="17.2" step="0.1" min="0" max="100" oninput="calculateCurrentBEFFE(0); updateTotalMixture()" aria-describedby="protein-help-0">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-protein-0" value="17.2" oninput="calculateCurrentBEFFE(0); updateTotalMixture()" aria-describedby="protein-help-0">
                             </div>
                             <div class="input-group">
                                 <label for="current-beffe-manual-0">BEFFE (%)</label>
-                                <input type="number" id="current-beffe-manual-0" value="16.4" step="0.1" min="0" max="100" oninput="updateTotalMixture()" aria-describedby="beffe-help-0">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-beffe-manual-0" value="16.4" oninput="updateTotalMixture()" aria-describedby="beffe-help-0">
                             </div>
                             <div class="input-group">
                                 <label for="current-amount-0">Verfügbare Menge (kg)</label>
-                                <input type="number" id="current-amount-0" placeholder="z.B. 1000" step="10" min="0" oninput="updateTotalMixture()" aria-describedby="amount-help-0">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="current-amount-0" placeholder="z.B. 1000" oninput="updateTotalMixture()" aria-describedby="amount-help-0">
                             </div>
                         </div>
                     </article>
@@ -119,82 +108,136 @@
                 <div class="total-mixture" id="total-mixture" role="region" aria-labelledby="mixture-title">
                     <h3 id="mixture-title">
                         <span class="mixture-icon" aria-hidden="true">🧮</span>
-                        Gesamt-Mischung (Rohware)
+                        Gesamt-Mischung
                     </h3>
-                    <div class="mixture-stats" id="mixture-stats">
+                    
+                    <!-- Tab Navigation -->
+                    <div class="mixture-tabs">
+                        <button class="mixture-tab active" data-tab="rohware" onclick="switchMixtureTab('rohware')">
+                            🥩 Rohware (Basis)
+                        </button>
+                        <button class="mixture-tab" data-tab="braet" onclick="switchMixtureTab('braet')">
+                            🍖 Brät (mit Gewürzen)
+                        </button>
+                        <button class="mixture-tab" data-tab="fertigware" onclick="switchMixtureTab('fertigware')">
+                            🌭 Fertigware (gebrüht)
+                        </button>
+                    </div>
+                    
+                    <!-- Rohware Stats (Basis ohne Gewürze) -->
+                    <div class="mixture-stats mixture-tab-content active" id="mixture-stats-rohware" data-tab-content="rohware">
                         <div class="stat-item">
                             <span class="stat-label">Gesamt-Menge:</span>
-                            <span class="stat-value" id="total-amount">1000 kg</span>
+                            <span class="stat-value" id="rohware-amount">—</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-label">Durchschn. Eiweiß:</span>
-                            <span class="stat-value" id="total-protein">17.2%</span>
+                            <span class="stat-label">Eiweiß:</span>
+                            <span class="stat-value" id="rohware-protein">—</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-label">Durchschn. Fett:</span>
-                            <span class="stat-value" id="total-fat">14.5%</span>
+                            <span class="stat-label">Fett:</span>
+                            <span class="stat-value" id="rohware-fat">—</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-label">Durchschn. Wasser:</span>
-                            <span class="stat-value" id="total-water">67.3%</span>
+                            <span class="stat-label">Wasser:</span>
+                            <span class="stat-value" id="rohware-water">—</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-label">Durchschn. BE:</span>
-                            <span class="stat-value" id="total-be">1.0%</span>
+                            <span class="stat-label">BE:</span>
+                            <span class="stat-value" id="rohware-be">—</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-label">Durchschn. BEFFE:</span>
-                            <span class="stat-value" id="total-beffe">16.4%</span>
+                            <span class="stat-label">BEFFE:</span>
+                            <span class="stat-value" id="rohware-beffe">—</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">Wasser/Protein-Faktor:</span>
-                            <span class="stat-value" id="total-water-protein-ratio">3.9</span>
+                            <span class="stat-value" id="rohware-water-protein-ratio">—</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">Fett/Protein-Faktor:</span>
-                            <span class="stat-value" id="total-fat-protein-ratio">0.8</span>
-                        </div>
-                        <div class="stat-item spice-info">
-                            <span class="stat-label">+ Gewürze:</span>
-                            <span class="stat-value" id="total-spice-amount">2.5 kg</span>
-                        </div>
-                        <div class="stat-item spice-info">
-                            <span class="stat-label">Gewürz-Kosten:</span>
-                            <span class="stat-value" id="total-spice-cost">37.50€</span>
+                            <span class="stat-value" id="rohware-fat-protein-ratio">—</span>
                         </div>
                     </div>
                     
-                    <!-- Fertigware-Prognose -->
-                    <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
-                        <h4 style="margin: 0 0 15px 0; color: #10b981; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
-                            <span aria-hidden="true">🏭</span>
-                            Erwartete Fertigware (nach Produktion)
-                        </h4>
-                        <div class="mixture-stats" id="fertigware-stats">
-                            <div class="stat-item">
-                                <span class="stat-label">Eiweiß (Fertig):</span>
-                                <span class="stat-value" id="fertig-protein">—</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Fett (Fertig):</span>
-                                <span class="stat-value" id="fertig-fat">—</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Wasser (Fertig):</span>
-                                <span class="stat-value" id="fertig-water">—</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">BE (Fertig):</span>
-                                <span class="stat-value" id="fertig-be">—</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">BEFFE (Fertig):</span>
-                                <span class="stat-value" id="fertig-beffe">—</span>
-                            </div>
+                    <!-- Brät Stats (mit Gewürzen + Wasser-Bindung) -->
+                    <div class="mixture-stats mixture-tab-content" id="mixture-stats-braet" data-tab-content="braet" style="display: none;">
+                        <div class="stat-item">
+                            <span class="stat-label">Gesamt-Menge:</span>
+                            <span class="stat-value" id="braet-amount">—</span>
                         </div>
-                        <p style="margin-top: 10px; font-size: 0.85rem; color: #6b7280; font-style: italic;">
-                            ℹ️ Prognose basiert auf durchschnittlichen Produktions-Verlusten aus Food Scan Messungen
-                        </p>
+                        <div class="stat-item">
+                            <span class="stat-label">Eiweiß:</span>
+                            <span class="stat-value" id="braet-protein">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Fett:</span>
+                            <span class="stat-value" id="braet-fat">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Wasser (frei):</span>
+                            <span class="stat-value" id="braet-water">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">BE:</span>
+                            <span class="stat-value" id="braet-be">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">BEFFE:</span>
+                            <span class="stat-value" id="braet-beffe">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Wasser/Protein-Faktor:</span>
+                            <span class="stat-value" id="braet-water-protein-ratio">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Fett/Protein-Faktor:</span>
+                            <span class="stat-value" id="braet-fat-protein-ratio">—</span>
+                        </div>
+                        <div class="stat-item spice-info">
+                            <span class="stat-label">+ Gewürze:</span>
+                            <span class="stat-value" id="braet-spice-amount">—</span>
+                        </div>
+                        <div class="stat-item spice-info">
+                            <span class="stat-label">Gebundenes Wasser:</span>
+                            <span class="stat-value" id="braet-bound-water">—</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Fertigware Stats (nach Brühen) -->
+                    <div class="mixture-stats mixture-tab-content" id="mixture-stats-fertigware" data-tab-content="fertigware" style="display: none;">
+                        <div class="stat-item">
+                            <span class="stat-label">Gesamt-Menge:</span>
+                            <span class="stat-value" id="fertigware-amount">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Eiweiß:</span>
+                            <span class="stat-value" id="fertigware-protein">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Fett:</span>
+                            <span class="stat-value" id="fertigware-fat">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Wasser:</span>
+                            <span class="stat-value" id="fertigware-water">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">BE:</span>
+                            <span class="stat-value" id="fertigware-be">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">BEFFE:</span>
+                            <span class="stat-value" id="fertigware-beffe">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Wasser/Protein-Faktor:</span>
+                            <span class="stat-value" id="fertigware-water-protein-ratio">—</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Fett/Protein-Faktor:</span>
+                            <span class="stat-value" id="fertigware-fat-protein-ratio">—</span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -223,29 +266,74 @@
                     </div>
                     <div class="input-group">
                         <label for="target-protein">Ziel Eiweiß (%)</label>
-                        <input type="number" id="target-protein" value="12.0" step="0.1" min="0" max="100" aria-describedby="target-protein-help">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="target-protein" value="12.0" aria-describedby="target-protein-help">
                     </div>
                     <div class="input-group">
                         <label for="target-fat">Ziel Fett (%)</label>
-                        <input type="number" id="target-fat" value="25.0" step="0.1" min="0" max="100" aria-describedby="target-fat-help">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="target-fat" value="25.0" aria-describedby="target-fat-help">
                     </div>
                     <div class="input-group">
                         <label for="target-water">Ziel Wasser (%)</label>
-                        <input type="number" id="target-water" value="62.0" step="0.1" min="0" max="100" aria-describedby="target-water-help">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="target-water" value="62.0" aria-describedby="target-water-help">
                     </div>
                     <div class="input-group">
                         <label for="target-be">Max. BE (%)</label>
-                        <input type="number" id="target-be" value="3.0" step="0.1" min="0" max="100" aria-describedby="target-be-help">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="target-be" value="3.0" aria-describedby="target-be-help">
                     </div>
                     <div class="input-group">
                         <label for="target-beffe">Min. BEFFE (%)</label>
-                        <input type="number" id="target-beffe" value="9.0" step="0.1" min="0" max="100" aria-describedby="target-beffe-help">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="target-beffe" value="9.0" aria-describedby="target-beffe-help">
                     </div>
                     <div class="input-group">
                         <label for="target-quantity">Gewünschte Menge (kg)</label>
-                        <input type="number" id="target-quantity" value="200" step="10" min="0" aria-describedby="target-quantity-help">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="target-quantity" value="200" aria-describedby="target-quantity-help">
                     </div>
                 </div>
+            </section>
+
+            <!-- Brät messen → Fertigware errechnen -->
+            <section class="section braet-fertigware-section">
+                <div class="section-header">
+                    <div class="section-icon">🍖</div>
+                    <div class="section-title">
+                        <h2>Brät gemessen → Fertigware errechnen</h2>
+                        <p class="section-subtitle">Food-Scan-Werte des frischen Brät eingeben – App errechnet die Lyoner-Fertigware</p>
+                    </div>
+                </div>
+
+                <p class="braet-section-hint">
+                    Brät mit dem Food Scan messen und die Werte hier eintragen. Die App wendet den kalibrierten Brüh-Effekt an
+                    und zeigt die vorhergesagte Fertigware-Zusammensetzung inkl. Leitsatz-Check.
+                </p>
+
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="braet-input-be">BE - Bindegewebseiweiß (%)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-be" placeholder="z.B. 1,8" oninput="updateBraetFertigwarePreview()">
+                    </div>
+                    <div class="input-group">
+                        <label for="braet-input-fat">Fett (%)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-fat" placeholder="z.B. 21,5" oninput="updateBraetFertigwarePreview()">
+                    </div>
+                    <div class="input-group">
+                        <label for="braet-input-water">Wasser (%)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-water" placeholder="z.B. 64,0" oninput="updateBraetFertigwarePreview()">
+                    </div>
+                    <div class="input-group">
+                        <label for="braet-input-protein">Eiweiß (%)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-protein" placeholder="z.B. 12,5" oninput="updateBraetFertigwarePreview()">
+                    </div>
+                    <div class="input-group">
+                        <label for="braet-input-beffe">BEFFE (%)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-beffe" placeholder="z.B. 10,7" oninput="updateBraetFertigwarePreview()">
+                    </div>
+                    <div class="input-group">
+                        <label for="braet-input-amount">Brät-Menge (kg) <span class="optional-label">optional</span></label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-amount" placeholder="z.B. 217" oninput="updateBraetFertigwarePreview()">
+                    </div>
+                </div>
+
+                <div id="braet-fertigware-result" class="braet-fertigware-result" style="display:none;"></div>
             </section>
 
             <div class="action-section">
@@ -383,23 +471,23 @@
                     <div class="settings-grid">
                         <div class="setting-item">
                             <label for="tolerance-protein">Eiweiß-Toleranz (%)</label>
-                            <input type="number" id="tolerance-protein" value="0.5" step="0.1" min="0" max="5">
+                            <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="tolerance-protein" value="0.5">
                         </div>
                         <div class="setting-item">
                             <label for="tolerance-fat">Fett-Toleranz (%)</label>
-                            <input type="number" id="tolerance-fat" value="1.0" step="0.1" min="0" max="5">
+                            <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="tolerance-fat" value="1.0">
                         </div>
                         <div class="setting-item">
                             <label for="tolerance-beffe">BEFFE-Toleranz (%)</label>
-                            <input type="number" id="tolerance-beffe" value="0.5" step="0.1" min="0" max="2">
+                            <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="tolerance-beffe" value="0.5">
                         </div>
                         <div class="setting-item">
                             <label for="spice-factor">Gewürz-Faktor (%)</label>
-                            <input type="number" id="spice-factor" value="3.46" step="0.1" min="0" max="10" title="Prozentsatz der Gesamtmasse für Gewürze und Zusatzstoffe">
+                            <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="spice-factor" value="3.46" title="Prozentsatz der Gesamtmasse für Gewürze und Zusatzstoffe">
                         </div>
                         <div class="setting-item">
                             <label for="spice-cost">Gewürz-Kosten (€/kg)</label>
-                            <input type="number" id="spice-cost" value="0" step="0.5" min="0" max="100" title="Durchschnittliche Kosten für Gewürzmischung pro kg">
+                            <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="spice-cost" value="0" title="Durchschnittliche Kosten für Gewürzmischung pro kg">
                         </div>
                         <div class="setting-item">
                             <label for="advanced-spices">Erweiterte Gewürz-Eingabe</label>
@@ -414,21 +502,21 @@
                         <div class="spices-list" id="spices-list">
                             <div class="spice-item">
                                 <label>Salz (%):</label>
-                                <input type="number" id="spice-salt" value="2.0" step="0.1" min="0" max="5">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="spice-salt" value="2.0">
                                 <span>Kosten: €/kg</span>
-                                <input type="number" id="spice-salt-cost" value="1.5" step="0.1" min="0" max="10">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="spice-salt-cost" value="1.5">
                             </div>
                             <div class="spice-item">
                                 <label>Pfeffer (%):</label>
-                                <input type="number" id="spice-pepper" value="0.2" step="0.05" min="0" max="1">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="spice-pepper" value="0.2">
                                 <span>Kosten: €/kg</span>
-                                <input type="number" id="spice-pepper-cost" value="25.0" step="1" min="0" max="100">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="spice-pepper-cost" value="25.0">
                             </div>
                             <div class="spice-item">
                                 <label>Andere Gewürze (%):</label>
-                                <input type="number" id="spice-others" value="0.3" step="0.1" min="0" max="2">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="spice-others" value="0.3">
                                 <span>Kosten: €/kg</span>
-                                <input type="number" id="spice-others-cost" value="20.0" step="1" min="0" max="100">
+                                <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="spice-others-cost" value="20.0">
                             </div>
                         </div>
                         <div class="spices-summary">
