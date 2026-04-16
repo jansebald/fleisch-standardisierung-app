@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fleisch-Standardisierung - Rohstoffberatung</title>
-    <link rel="stylesheet" href="style.css?v=4">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=12">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏭</text></svg>">
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#3498db">
+    <meta name="theme-color" content="#C07A10">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Fleisch-App">
@@ -22,10 +22,10 @@
     <div class="app-container">
         <header class="app-header">
             <div class="header-content">
-                <div class="header-icon">🏭</div>
+                <img src="logo-100jahre.svg" alt="100 Jahre Logo" class="header-logo">
                 <div class="header-text">
-                    <h1>Endprodukt-Herstellung</h1>
-                    <p>Optimiere deine Rohstoffe für maximale Wasser-Schüttung</p>
+                    <h1>AuRo-App</h1>
+                    <p>Rohstoff-Standardisierung per App</p>
                 </div>
                 <button class="dark-mode-toggle" onclick="toggleDarkMode()" aria-label="Dark Mode umschalten" title="Dark Mode (Strg+D)">
                     <span class="dark-mode-icon" aria-hidden="true">🌙</span>
@@ -37,6 +37,18 @@
         </header>
 
         <main class="main-content">
+            <!-- Haupt-Tab-Navigation -->
+            <nav class="page-tabs">
+                <button class="page-tab-btn active" onclick="switchMainTab('rohware')" data-tab="rohware">
+                    🥩 Rohware
+                </button>
+                <button class="page-tab-btn" onclick="switchMainTab('braet')" data-tab="braet">
+                    🍖 Brät
+                </button>
+            </nav>
+
+            <!-- Tab 1: Rohware -->
+            <div id="main-tab-rohware" class="page-tab-content active">
             <!-- Rohstoffe Section -->
             <section class="section materials-section">
                 <div class="section-header">
@@ -66,8 +78,6 @@
                                     <option value="ice">Eis/Wasser</option>
                                     <option value="schulter">Schulter schier</option>
                                     <option value="backen">Backen</option>
-                                    <option value="braet">Fertiges Brät (Validierung)</option>
-                                    <option value="gewuerze">Gewürze & Zusatzstoffe</option>
                                     <option value="custom">Benutzerdefiniert</option>
                                 </select>
                             </div>
@@ -175,7 +185,7 @@
                             <span class="stat-value" id="braet-fat">—</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-label">Wasser (frei):</span>
+                            <span class="stat-label">Wasser:</span>
                             <span class="stat-value" id="braet-water">—</span>
                         </div>
                         <div class="stat-item">
@@ -193,14 +203,6 @@
                         <div class="stat-item">
                             <span class="stat-label">Fett/Protein-Faktor:</span>
                             <span class="stat-value" id="braet-fat-protein-ratio">—</span>
-                        </div>
-                        <div class="stat-item spice-info">
-                            <span class="stat-label">+ Gewürze:</span>
-                            <span class="stat-value" id="braet-spice-amount">—</span>
-                        </div>
-                        <div class="stat-item spice-info">
-                            <span class="stat-label">Gebundenes Wasser:</span>
-                            <span class="stat-value" id="braet-bound-water">—</span>
                         </div>
                     </div>
                     
@@ -291,41 +293,40 @@
                 </div>
             </section>
 
+            </div><!-- /main-tab-rohware -->
+
+            <!-- Tab 2: Brät -->
+            <div id="main-tab-braet" class="page-tab-content">
             <!-- Brät messen → Fertigware errechnen -->
             <section class="section braet-fertigware-section">
                 <div class="section-header">
                     <div class="section-icon">🍖</div>
                     <div class="section-title">
                         <h2>Brät gemessen → Fertigware errechnen</h2>
-                        <p class="section-subtitle">Food-Scan-Werte des frischen Brät eingeben – App errechnet die Lyoner-Fertigware</p>
+                        <p class="section-subtitle">Food-Scan-Werte eingeben – App errechnet die Fertigware-Zusammensetzung</p>
                     </div>
                 </div>
 
-                <p class="braet-section-hint">
-                    Brät mit dem Food Scan messen und die Werte hier eintragen. Die App wendet den kalibrierten Brüh-Effekt an
-                    und zeigt die vorhergesagte Fertigware-Zusammensetzung inkl. Leitsatz-Check.
-                </p>
-
                 <div class="input-grid">
                     <div class="input-group">
-                        <label for="braet-input-be">BE - Bindegewebseiweiß (%)</label>
-                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-be" placeholder="z.B. 1,8" oninput="updateBraetFertigwarePreview()">
+                        <label for="braet-input-protein">Eiweiß (%)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-protein" value="12,05" oninput="updateBraetFertigwarePreview()">
                     </div>
                     <div class="input-group">
                         <label for="braet-input-fat">Fett (%)</label>
-                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-fat" placeholder="z.B. 21,5" oninput="updateBraetFertigwarePreview()">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-fat" value="22,65" oninput="updateBraetFertigwarePreview()">
                     </div>
                     <div class="input-group">
                         <label for="braet-input-water">Wasser (%)</label>
-                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-water" placeholder="z.B. 64,0" oninput="updateBraetFertigwarePreview()">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-water" value="61,54" oninput="updateBraetFertigwarePreview()">
                     </div>
                     <div class="input-group">
-                        <label for="braet-input-protein">Eiweiß (%)</label>
-                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-protein" placeholder="z.B. 12,5" oninput="updateBraetFertigwarePreview()">
+                        <label for="braet-input-be">BE - Bindegewebseiweiß (%)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-be" value="2,01" oninput="updateBraetFertigwarePreview()">
                     </div>
                     <div class="input-group">
                         <label for="braet-input-beffe">BEFFE (%)</label>
-                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-beffe" placeholder="z.B. 10,7" oninput="updateBraetFertigwarePreview()">
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="braet-input-beffe" value="10,03" oninput="updateBraetFertigwarePreview()">
                     </div>
                     <div class="input-group">
                         <label for="braet-input-amount">Brät-Menge (kg) <span class="optional-label">optional</span></label>
@@ -335,6 +336,74 @@
 
                 <div id="braet-fertigware-result" class="braet-fertigware-result" style="display:none;"></div>
             </section>
+
+            <!-- Folgecharge berechnen (Brät-Seite) -->
+            <section class="section folgecharge-section">
+                <div class="section-header">
+                    <div class="section-icon">⚖️</div>
+                    <div class="section-title">
+                        <h2>Folgecharge berechnen</h2>
+                        <p class="section-subtitle">Was muss ich hinzugeben, um aus vorhandenem Brät → Ziel-Charge mit Leitsatz-Werten zu erreichen?</p>
+                    </div>
+                </div>
+
+                <!-- Setup: Produkt + Rohstoffe -->
+                <div class="folgecharge-setup">
+                    <div class="input-group">
+                        <label for="folgecharge-produkt">Zielprodukt (Leitsatz)</label>
+                        <select id="folgecharge-produkt" oninput="calcFolgecharge()">
+                            <option value="lyoner">Lyoner</option>
+                            <option value="leberwurst">Leberwurst</option>
+                            <option value="bratwurst">Bratwurst</option>
+                            <option value="wiener">Wiener Würstchen</option>
+                            <option value="hackfleisch">Hackfleisch</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="folgecharge-mat1">Rohstoff 1</label>
+                        <select id="folgecharge-mat1" oninput="calcFolgecharge()">
+                            <option value="s3">S III (Food Scan)</option>
+                            <option value="s8">S VIII</option>
+                            <option value="s9">S IX (Food Scan)</option>
+                            <option value="schulter">Schulter schier</option>
+                            <option value="backen">Backen</option>
+                            <option value="custom">Benutzerdefiniert</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="folgecharge-mat2">Rohstoff 2</label>
+                        <select id="folgecharge-mat2" oninput="calcFolgecharge()">
+                            <option value="s3">S III (Food Scan)</option>
+                            <option value="s8">S VIII</option>
+                            <option value="s9" selected>S IX (Food Scan)</option>
+                            <option value="ice">Eis/Wasser</option>
+                            <option value="schulter">Schulter schier</option>
+                            <option value="backen">Backen</option>
+                            <option value="custom">Benutzerdefiniert</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Mengen -->
+                <div class="folgecharge-controls">
+                    <div class="input-group">
+                        <label for="folgecharge-ist">Vorhandenes Brät (kg)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="folgecharge-ist" placeholder="z.B. 20" oninput="calcFolgecharge()">
+                    </div>
+                    <div class="folgecharge-arrow">→</div>
+                    <div class="input-group">
+                        <label for="folgecharge-ziel">Ziel-Menge gesamt (kg)</label>
+                        <input type="text" inputmode="decimal" pattern="[0-9.,]*" id="folgecharge-ziel" placeholder="z.B. 50" oninput="calcFolgecharge()">
+                    </div>
+                </div>
+
+                <div id="folgecharge-result" style="display:none;"></div>
+            </section>
+
+            </div><!-- /main-tab-braet -->
+
+            <!-- Tab 1 continued: Action + Results (always inside Rohware tab) -->
+            <div id="main-tab-rohware-actions" class="page-tab-content active">
 
             <div class="action-section">
                 <button class="calculate-btn primary-action" onclick="calculateOptimization()" aria-describedby="calc-help">
@@ -389,6 +458,7 @@
                     </div>
                 </div>
             </section>
+            </div><!-- /main-tab-rohware-actions -->
         </main>
     </div>
 
@@ -431,6 +501,9 @@
                 </button>
                 <button class="tab-btn" onclick="showTab('validation')" data-tab="validation">
                     🧪 Validierung
+                </button>
+                <button class="tab-btn" onclick="showTab('recipes')" data-tab="recipes">
+                    📋 Rezepte
                 </button>
             </div>
             
@@ -521,6 +594,15 @@
                         </div>
                         <div class="spices-summary">
                             <strong>Gesamt-Gewürze: <span id="total-spice-percentage">2.5%</span></strong>
+                        </div>
+                    </div>
+
+                    <!-- Optimierungs-Priorität -->
+                    <div class="priority-section">
+                        <h4>🎯 Optimierungs-Priorität</h4>
+                        <p class="section-description">Reihenfolge festlegen, in der Analysewerte bei gleich guten Lösungen bevorzugt werden.</p>
+                        <div id="priority-list" class="priority-list">
+                            <!-- Wird dynamisch gefüllt -->
                         </div>
                     </div>
 
@@ -628,8 +710,19 @@
                         </p>
                     </div>
                 </div>
+
+                <!-- Rezepte Tab -->
+                <div id="recipes-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h3>📋 Rezepte verwalten</h3>
+                    </div>
+                    <p class="section-description">Lege fest, welche Rohstoffe für jedes Produkt verwendet werden sollen. Die Optimierung berücksichtigt nur die hier markierten Rohstoffe.</p>
+                    <div id="recipes-list" class="items-list">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+                </div>
             </div>
-            
+
             <div class="modal-footer">
                 <button class="save-btn" onclick="saveSettings()">
                     💾 Änderungen speichern
@@ -648,7 +741,7 @@
     <script src="dark-mode.js"></script>
     
     <!-- Hauptskript -->
-    <script src="script.js"></script>
+    <script src="script.js?v=13"></script>
     
     <!-- PWA Service Worker -->
     <script>

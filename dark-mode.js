@@ -47,7 +47,7 @@ window.addEventListener('DOMContentLoaded', function() {
     } else if (icon) {
         icon.textContent = '🌙';
     }
-    
+
     // Keyboard Shortcut für Dark Mode (Strg+D)
     document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
@@ -55,4 +55,14 @@ window.addEventListener('DOMContentLoaded', function() {
             toggleDarkMode();
         }
     });
+});
+
+// System-Präferenz live verfolgen (wirkt nur ohne manuelle Überschreibung)
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+    if (localStorage.getItem('darkMode') === null) {
+        document.body.classList.toggle('dark-mode', e.matches);
+        document.body.classList.toggle('light-mode', !e.matches);
+        const icon = document.querySelector('.dark-mode-icon');
+        if (icon) icon.textContent = e.matches ? '☀️' : '🌙';
+    }
 });

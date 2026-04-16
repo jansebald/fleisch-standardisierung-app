@@ -1,5 +1,5 @@
 // Service Worker für PWA
-const CACHE_NAME = 'fleisch-app-v4';
+const CACHE_NAME = 'fleisch-app-v25';
 
 // Dynamische URL-Erstellung basierend auf dem aktuellen Pfad
 const getBaseUrl = () => {
@@ -16,7 +16,8 @@ const urlsToCache = [
   BASE_URL,
   `${BASE_URL}index.html`,
   `${BASE_URL}style.css`,
-  `${BASE_URL}script.js`,
+  `${BASE_URL}script.js?v=11`,
+  `${BASE_URL}logo-100jahre.svg`,
   `${BASE_URL}manifest.json`,
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
